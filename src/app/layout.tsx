@@ -132,17 +132,17 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.svg" />
-      </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
-      >
+
         {/* === Google Analytics (gtag.js) === */}
-        {/* Loads the GA library asynchronously to avoid blocking page render. */}
+        {/* IMPORTANT: This MUST be inside <head> for Google Search Console
+            verification to work. Using strategy="beforeInteractive" keeps it
+            high in the document load order so GA4 can collect page_view
+            events as early as possible. */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-          strategy="afterInteractive"
+          strategy="beforeInteractive"
         />
-        <Script id="google-analytics" strategy="afterInteractive">
+        <Script id="google-analytics" strategy="beforeInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
@@ -153,7 +153,10 @@ export default function RootLayout({
             });
           `}
         </Script>
-
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+      >
         {children}
         <Toaster />
       </body>
