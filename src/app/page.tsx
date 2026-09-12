@@ -351,6 +351,7 @@ function TopNav({
           <a href="#features" className="hover:text-foreground transition-colors">Features</a>
           <a href="#how-it-works" className="hover:text-foreground transition-colors">How it works</a>
           <a href="#networks" className="hover:text-foreground transition-colors">Networks</a>
+          <a href="/pricing" className="hover:text-foreground transition-colors">Pricing</a>
           <a href="#guide" className="hover:text-foreground transition-colors">Guide</a>
         </nav>
         <div className="flex items-center gap-2">
@@ -1753,6 +1754,11 @@ function CTASection() {
                   </a>
                 </Button>
                 <Button asChild size="lg" variant="outline" className="h-12 px-7 font-semibold gap-2 bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+                  <a href="/pricing">
+                    <Crown className="w-4 h-4" /> See pricing
+                  </a>
+                </Button>
+                <Button asChild size="lg" variant="outline" className="h-12 px-7 font-semibold gap-2 bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
                   <a href="#guide">
                     <BookOpen className="w-4 h-4" /> Read the guide
                   </a>
@@ -1787,6 +1793,7 @@ function Footer() {
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
             <a href="#how-it-works" className="hover:text-foreground transition-colors">How it works</a>
             <a href="#networks" className="hover:text-foreground transition-colors">Networks</a>
+            <a href="/pricing" className="hover:text-foreground transition-colors">Pricing</a>
             <a href="#guide" className="hover:text-foreground transition-colors">Guide</a>
           </div>
         </div>

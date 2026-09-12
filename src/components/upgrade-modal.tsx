@@ -18,9 +18,7 @@ interface UpgradeModalProps {
   onUpgraded?: () => void
 }
 
-const GUMROAD_URL = process.env.NEXT_PUBLIC_SITE_URL?.includes("vercel.app")
-  ? "https://gumroad.com/l/affiliate-link-checker-pro"
-  : "https://gumroad.com/l/affiliate-link-checker-pro"
+const LEMONSQUEEZY_URL = process.env.NEXT_PUBLIC_LEMON_SQUEEZY_CHECKOUT_URL || "https://affiliate-link-checker.lemonsqueezy.com/checkout"
 
 export function UpgradeModal({ open, onClose, currentUserEmail, onUpgraded }: UpgradeModalProps) {
   const [stage, setStage] = useState<"offer" | "checkout" | "verify" | "done">("offer")
@@ -49,8 +47,12 @@ export function UpgradeModal({ open, onClose, currentUserEmail, onUpgraded }: Up
   }, [open])
 
   const handleCheckout = () => {
-    // Open Gumroad in a new tab + take user to verify stage
-    window.open(GUMROAD_URL, "_blank", "noopener,noreferrer")
+    // Open Lemon Squeezy checkout in a new tab + take user to verify stage
+    // Pre-fill email if logged in
+    const checkoutUrl = currentUserEmail
+      ? `${LEMONSQUEEZY_URL}?checkout[email]=${encodeURIComponent(currentUserEmail)}`
+      : LEMONSQUEEZY_URL
+    window.open(checkoutUrl, "_blank", "noopener,noreferrer")
     setStage("verify")
   }
 
@@ -141,7 +143,7 @@ export function UpgradeModal({ open, onClose, currentUserEmail, onUpgraded }: Up
                 </span>
               </div>
               <h2 className="relative text-2xl sm:text-3xl font-bold mb-1">
-                Go Pro for $9 — once.
+                Go Pro for $9, once.
               </h2>
               <p className="relative text-sm opacity-80">
                 Pay once. Use forever. No subscriptions, no monthly fees.
@@ -184,7 +186,7 @@ export function UpgradeModal({ open, onClose, currentUserEmail, onUpgraded }: Up
                   </Button>
 
                   <div className="mt-3 text-center text-[11px] text-muted-foreground">
-                    Secure checkout via Gumroad · 30-day money-back guarantee
+                    Secure checkout via Lemon Squeezy · 30-day money-back guarantee
                   </div>
                 </motion.div>
               )}
@@ -201,7 +203,7 @@ export function UpgradeModal({ open, onClose, currentUserEmail, onUpgraded }: Up
                       <div>
                         <div className="font-medium text-sm mb-1">Almost there!</div>
                         <div className="text-xs text-muted-foreground leading-relaxed">
-                          Complete your purchase on Gumroad. Then come back and verify your email
+                          Complete your purchase on Lemon Squeezy. Then come back and verify your email
                           so we can activate your Pro access.
                         </div>
                       </div>
@@ -223,7 +225,7 @@ export function UpgradeModal({ open, onClose, currentUserEmail, onUpgraded }: Up
                     </div>
                     <div>
                       <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                        Gumroad receipt ID <span className="opacity-60">(optional)</span>
+                        Lemon Squeezy receipt ID <span className="opacity-60">(optional)</span>
                       </label>
                       <Input
                         type="text"
@@ -259,7 +261,7 @@ export function UpgradeModal({ open, onClose, currentUserEmail, onUpgraded }: Up
                       onClick={handleCheckout}
                       className="w-full text-xs text-primary hover:underline"
                     >
-                      Didn't finish checkout? Open Gumroad again
+                      Didn't finish checkout? Open Lemon Squeezy again
                     </button>
                   </div>
                 </motion.div>

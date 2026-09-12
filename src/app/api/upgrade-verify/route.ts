@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
           email,
           amount: 9.0,
           currency: 'USD',
-          provider: 'gumroad',
+          provider: 'lemonsqueezy',  // switched to Lemon Squeezy
           provider_order_id: receiptId,
           status: 'pending',
         },
