@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { X, Mail, Loader2, CheckCircle2, ShieldCheck, Zap } from "lucide-react"
+import {
+  X, Mail, Loader2, CheckCircle2, ShieldCheck, Zap, Lock, User as UserIcon, Eye, EyeOff,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase-client"
@@ -15,21 +17,31 @@ interface AuthModalProps {
   reason?: "signup" | "rate-limit" | "bulk"
 }
 
+type Mode = "signup" | "login"
+
 export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthModalProps) {
+  const [mode, setMode] = useState<Mode>(reason === "rate-limit" ? "signup" : "signup")
+  const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
+      setName("")
       setEmail("")
-      setSent(false)
+      setPassword("")
+      setShowPassword(false)
       setLoading(false)
+      setError(null)
+      setMode(reason === "rate-limit" ? "signup" : "signup")
     }
-  }, [open])
+  }, [open, reason])
 
-  // Listen for auth state changes (user clicks magic link → comes back → modal should close)
+  // Listen for auth state changes (user logs in → modal should close)
   useEffect(() => {
     if (!open) return
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
@@ -42,25 +54,65 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
     return () => sub.subscription.unsubscribe()
   }, [open, onClose, onSuccess])
 
-  const handleSendMagicLink = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("Please enter a valid email address")
+    setError(null)
+
+    // Validation
+    if (mode === "signup" && !name.trim()) {
+      setError("Please enter your name")
       return
     }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address")
+      return
+    }
+    if (!password || password.length < 6) {
+      setError("Password must be at least 6 characters")
+      return
+    }
+
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: window.location.origin,
-        },
-      })
-      if (error) throw error
-      setSent(true)
-      toast.success("Magic link sent! Check your inbox.")
+      if (mode === "signup") {
+        // Sign up with email + password + name (no email confirmation needed
+        // if "Confirm email" is OFF in Supabase dashboard)
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name: name.trim(),
+              full_name: name.trim(),
+            },
+          },
+        })
+
+        if (signUpError) throw signUpError
+
+        // Check if email confirmation is required
+        if (data?.user && !data?.session) {
+          // Email confirmation is enabled — tell the user to check their inbox
+          toast.success("Account created. Please check your email to confirm.")
+          setMode("login")
+          setError("We sent a confirmation link to your email. Click it, then log in. (Tip: turn off email confirmation in Supabase to skip this step.)")
+        } else if (data?.session) {
+          // Email confirmation is OFF — already logged in
+          toast.success("Welcome! Account created.")
+        }
+      } else {
+        // Login with email + password
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (signInError) throw signInError
+        toast.success("Welcome back!")
+      }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to send magic link")
+      const msg = err instanceof Error ? err.message : "Authentication failed"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -68,9 +120,9 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
 
   const reasonText = {
     "rate-limit":
-      "Sign up free to start checking affiliate links. Free accounts get 3 checks per day. No password needed, just a magic link to your email.",
+      "Sign up free to start checking affiliate links. Free accounts get 3 checks per day. No email confirmation needed.",
     signup:
-      "Sign up to get 3 free checks per day. It takes 10 seconds — no password, just a magic link to your email.",
+      "Sign up to get 3 free checks per day. Just enter your name, email, and password. No email confirmation needed.",
     bulk:
       "Bulk URL checker is a Pro feature. Sign up first, then upgrade for $9 lifetime to unlock it.",
   }[reason]
@@ -110,87 +162,172 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
                 <div className="font-bold text-base">Affiliate Link Checker</div>
               </div>
 
-              {!sent ? (
-                <>
-                  <h2 className="text-xl font-bold mb-1">
-                    {reason === "rate-limit" ? "Sign up to use the tool" : "Sign up for more checks"}
-                  </h2>
-                  <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-                    {reasonText}
-                  </p>
-
-                  <form onSubmit={handleSendMagicLink} className="space-y-3">
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@example.com"
-                        className="pl-10 h-12"
-                        autoFocus
-                        required
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full h-12 font-semibold gap-2"
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Sending magic link...
-                        </>
-                      ) : (
-                        <>Send magic link</>
-                      )}
-                    </Button>
-                  </form>
-
-                  <ul className="mt-5 space-y-2 text-xs text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
-                      <span>No password — just a one-tap login link to your email.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
-                      <span>3 free checks per day for signed-up users.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Zap className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
-                      <span>
-                        Want unlimited? <button type="button" onClick={onClose} className="text-primary underline font-medium">Go Pro for $9 lifetime</button>.
-                      </span>
-                    </li>
-                  </ul>
-                </>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center py-6"
+              {/* Mode tabs */}
+              <div className="flex gap-1 p-1 rounded-lg bg-secondary/60 mb-5">
+                <button
+                  type="button"
+                  onClick={() => setMode("signup")}
+                  className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    mode === "signup"
+                      ? "bg-card shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                  </div>
-                  <h2 className="text-xl font-bold mb-2">Check your inbox</h2>
-                  <p className="text-sm text-muted-foreground mb-5">
-                    We sent a magic link to <span className="font-semibold text-foreground">{email}</span>.
-                    Click it to sign in.
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    The link expires in 1 hour. Keep this tab open — you'll be logged in automatically when you click it.
-                  </p>
-                  <Button
-                    onClick={() => setSent(false)}
-                    variant="outline"
-                    size="sm"
+                  Create account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("login")}
+                  className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    mode === "login"
+                      ? "bg-card shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Log in
+                </button>
+              </div>
+
+              <h2 className="text-xl font-bold mb-1">
+                {mode === "signup" ? (
+                  reason === "rate-limit" ? "Sign up to use the tool" : "Create your free account"
+                ) : (
+                  "Welcome back"
+                )}
+              </h2>
+              <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+                {reasonText}
+              </p>
+
+              {/* Error banner */}
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mb-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-sm"
                   >
-                    Use a different email
-                  </Button>
-                </motion.div>
-              )}
+                    {error}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <form onSubmit={handleSubmit} className="space-y-3">
+                {mode === "signup" && (
+                  <div className="relative">
+                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Your name"
+                      className="pl-10 h-12"
+                      autoFocus
+                      required
+                    />
+                  </div>
+                )}
+
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="pl-10 h-12"
+                    required
+                  />
+                </div>
+
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={mode === "signup" ? "Min 6 characters" : "Your password"}
+                    className="pl-10 pr-10 h-12"
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-12 font-semibold gap-2 mt-1"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {mode === "signup" ? "Creating account..." : "Logging in..."}
+                    </>
+                  ) : (
+                    mode === "signup" ? "Create free account" : "Log in"
+                  )}
+                </Button>
+              </form>
+
+              <ul className="mt-5 space-y-2 text-xs text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+                  <span>{mode === "signup" ? "No email confirmation needed." : "Your password is stored securely via Supabase Auth."}</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+                  <span>3 free checks per day for free accounts.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Zap className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <span>
+                    Want unlimited?{" "}
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="text-primary underline font-medium"
+                    >
+                      Go Pro for $9 lifetime
+                    </button>
+                  </span>
+                </li>
+              </ul>
+
+              {/* Switch mode link */}
+              <div className="mt-4 text-center text-xs text-muted-foreground">
+                {mode === "signup" ? (
+                  <>
+                    Already have an account?{" "}
+                    <button
+                      type="button"
+                      onClick={() => { setMode("login"); setError(null) }}
+                      className="text-primary underline font-medium"
+                    >
+                      Log in
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Don&apos;t have an account?{" "}
+                    <button
+                      type="button"
+                      onClick={() => { setMode("signup"); setError(null) }}
+                      className="text-primary underline font-medium"
+                    >
+                      Sign up free
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="px-6 pb-5 -mt-2 text-center text-[11px] text-muted-foreground">
