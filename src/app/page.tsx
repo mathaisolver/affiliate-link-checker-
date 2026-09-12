@@ -166,6 +166,18 @@ export default function Home() {
     try {
       // Get the user's auth token (if logged in) and pass it along
       const { data: { session } } = await supabase.auth.getSession()
+
+      // === AUTH GATE ===
+      // If not logged in, open the auth modal immediately. Don't even call the API.
+      if (!session?.access_token) {
+        setLoading(false)
+        clearInterval(stageTimer)
+        setScanStage("")
+        setAuthModalReason("rate-limit")
+        setAuthModalOpen(true)
+        return
+      }
+
       const res = await fetch("/api/check", {
         method: "POST",
         headers: {
@@ -175,6 +187,18 @@ export default function Home() {
         body: JSON.stringify({ url: u }),
       })
 
+      // === HANDLE AUTH REQUIRED (401) ===
+      if (res.status === 401) {
+        const data = await res.json()
+        setLoading(false)
+        clearInterval(stageTimer)
+        setScanStage("")
+        toast.error(data.message || "Please sign up to use this tool")
+        setAuthModalReason("rate-limit")
+        setAuthModalOpen(true)
+        return
+      }
+
       // === HANDLE RATE LIMIT (429) ===
       if (res.status === 429) {
         const data = await res.json()
@@ -182,13 +206,7 @@ export default function Home() {
         clearInterval(stageTimer)
         setScanStage("")
         toast.error(data.message || "Daily limit reached")
-        // Show auth modal for anon users, upgrade modal for signed-up users
-        if (data.tier === "anon") {
-          setAuthModalReason("rate-limit")
-          setAuthModalOpen(true)
-        } else {
-          setUpgradeModalOpen(true)
-        }
+        setUpgradeModalOpen(true)
         return
       }
 
@@ -643,7 +661,7 @@ function Hero({
                       {usage.remaining === Infinity
                         ? "Unlimited"
                         : usage.remaining === 0
-                        ? "0 left"
+                        ? "0 left today"
                         : `${usage.remaining} of ${usage.limit} free checks left today`}
                     </span>
                     {usage.remaining <= 1 && (
@@ -656,17 +674,14 @@ function Hero({
                     )}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/60 border border-border/60">
-                    <span className="font-medium">
-                      {usage.remaining === 0
-                        ? "Daily free check used"
-                        : `${usage.remaining} free check today`}
-                    </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-primary">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span className="font-medium">Sign up free to use the tool</span>
                     <button
                       onClick={onSignUpClick}
-                      className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary hover:bg-primary/25 transition-colors font-semibold"
+                      className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-semibold"
                     >
-                      Sign up for 3 →
+                      Sign up free →
                     </button>
                   </span>
                 )}

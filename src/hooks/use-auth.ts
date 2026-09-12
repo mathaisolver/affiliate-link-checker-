@@ -8,39 +8,42 @@ import { TIERS, type Tier } from "@/lib/tiers"
 export interface AuthState {
   user: User | null
   email: string | null
-  tier: Tier
+  tier: Tier | "anon"
   loading: boolean
   isPro: boolean
   isAuthenticated: boolean
 }
 
 export interface UsageState {
-  tier: Tier
+  tier: Tier | "anon"
   usedToday: number
   limit: number
   remaining: number
   bulkLimit: number
   canCheck: boolean
   canUseBulk: boolean
+  isAuthenticated: boolean
 }
 
+// Not logged in — can't use the tool at all
 const DEFAULT_AUTH: AuthState = {
   user: null,
   email: null,
-  tier: TIERS.ANON,
+  tier: "anon",
   loading: true,
   isPro: false,
   isAuthenticated: false,
 }
 
 const DEFAULT_USAGE: UsageState = {
-  tier: TIERS.ANON,
+  tier: "anon",
   usedToday: 0,
-  limit: 1,
-  remaining: 1,
+  limit: 0,
+  remaining: 0,
   bulkLimit: 0,
-  canCheck: true,
+  canCheck: false,
   canUseBulk: false,
+  isAuthenticated: false,
 }
 
 export function useAuth() {
@@ -63,12 +66,14 @@ export function useAuth() {
         bulkLimit: data.bulkLimit,
         canCheck: data.canCheck,
         canUseBulk: data.canUseBulk,
+        isAuthenticated: data.isAuthenticated,
       })
       setAuth((prev) => ({
         ...prev,
         tier: data.tier,
         isPro: data.tier === TIERS.PRO,
         email: data.email ?? prev.email,
+        isAuthenticated: data.isAuthenticated,
       }))
     } catch {
       // silent fail (network blocked, etc.)
@@ -80,7 +85,10 @@ export function useAuth() {
     refreshUsageRef.current = refreshUsage
   }, [refreshUsage])
 
-  // Subscribe to Supabase auth state changes + initial session check
+  // Subscribe to Supabase auth state changes + initial session check.
+  // The Supabase client has detectSessionInUrl: true, so when the page loads
+  // with #access_token=... in the hash (magic link redirect), Supabase auto-
+  // exchanges it for a session and emits a SIGNED_IN event.
   useEffect(() => {
     let mounted = true
 
@@ -101,8 +109,10 @@ export function useAuth() {
       refreshUsageRef.current()
     }
 
+    // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => applySession(session))
 
+    // Listen for auth state changes (SIGNED_IN via magic link, SIGNED_OUT via logout)
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return
       if (event === "SIGNED_IN" && session?.user) {
@@ -110,6 +120,8 @@ export function useAuth() {
       } else if (event === "SIGNED_OUT") {
         setAuth({ ...DEFAULT_AUTH, loading: false })
         setUsage(DEFAULT_USAGE)
+      } else if (event === "TOKEN_REFRESHED" && session?.user) {
+        applySession(session)
       }
     })
 

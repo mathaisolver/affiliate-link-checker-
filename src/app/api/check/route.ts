@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin, getUserFromRequest, hashIp } from '@/lib/supabase-server'
+import { supabaseAdmin, getUserFromRequest } from '@/lib/supabase-server'
 import { TIERS, LIMITS, type Tier } from '@/lib/tiers'
 
 export const runtime = 'nodejs'
@@ -954,47 +954,40 @@ function isAffiliateSubdomain(href: string, sourceHost: string): boolean {
 
 // ----- Main POST handler -----
 export async function POST(req: NextRequest) {
-  // === RATE LIMIT CHECK ===
-  // 1) Identify user (logged in via Supabase JWT, or anonymous via hashed IP)
+  // === AUTH REQUIRED — anonymous users cannot use the tool ===
+  // 1) Identify user (must be logged in via Supabase JWT)
   const userId = await getUserFromRequest(req)
-  const rawIp =
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip') ||
-    'unknown'
-  const ipHash = await hashIp(rawIp)
-
-  // 2) Determine tier
-  let tier: Tier = TIERS.ANON
-  if (userId) {
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('tier')
-      .eq('id', userId)
-      .maybeSingle()
-    if (profile?.tier === 'pro') tier = TIERS.PRO
-    else if (profile?.tier === 'free') tier = TIERS.FREE
-    else tier = TIERS.FREE  // default for any logged-in user
+  if (!userId) {
+    return NextResponse.json(
+      {
+        requiresAuth: true,
+        message: 'Please sign up to start checking affiliate links. Free accounts get 3 checks per day.',
+      },
+      { status: 401 }
+    )
   }
+
+  // 2) Determine tier (free = 3/day, pro = unlimited)
+  let tier: Tier = TIERS.FREE
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('tier')
+    .eq('id', userId)
+    .maybeSingle()
+  if (profile?.tier === 'pro') tier = TIERS.PRO
+  else if (profile?.tier === 'free') tier = TIERS.FREE
+  else tier = TIERS.FREE  // default for any logged-in user
 
   // 3) Count today's usage
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
   let usedToday = 0
-  if (userId) {
-    const { count } = await supabaseAdmin
-      .from('usage_tracking')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gte('created_at', todayStart.toISOString())
-    usedToday = count ?? 0
-  } else {
-    const { count } = await supabaseAdmin
-      .from('usage_tracking')
-      .select('*', { count: 'exact', head: true })
-      .eq('ip_hash', ipHash)
-      .gte('created_at', todayStart.toISOString())
-    usedToday = count ?? 0
-  }
+  const { count } = await supabaseAdmin
+    .from('usage_tracking')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', todayStart.toISOString())
+  usedToday = count ?? 0
 
   // 4) Enforce limit (Pro = unlimited)
   const limit = LIMITS[tier]
@@ -1006,11 +999,8 @@ export async function POST(req: NextRequest) {
         usedToday,
         limit,
         remaining: 0,
-        upgradeUrl: process.env.NEXT_PUBLIC_SITE_URL + '/#upgrade',
-        message:
-          tier === TIERS.ANON
-            ? `You've used your 1 free check today. Sign up to get 3 free checks per day, or go Pro for unlimited.`
-            : `You've used all ${limit} free checks today. Go Pro for $9 lifetime to keep checking.`,
+        upgradeUrl: '/pricing',
+        message: `You've used all ${limit} free checks today. Go Pro for $9 lifetime to keep checking.`,
       },
       { status: 429 }
     )
@@ -1327,7 +1317,7 @@ export async function POST(req: NextRequest) {
         .from('usage_tracking')
         .insert({
           user_id: userId,
-          ip_hash: userId ? null : ipHash,
+          ip_hash: null,
           url_checked: rawUrl.trim(),
         })
       if (insertRes.error) {

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Pricing — Affiliate Link Checker: Free + $9 Lifetime Pro",
   description:
-    "Free forever for 1 check a day. Sign up free for 3 checks. Go Pro for $9 lifetime: unlimited checks, bulk URL checker (up to 50 URLs), CSV export, no ads. Pay once, use forever.",
+    "Sign up free for 3 affiliate link checks per day. Or pay $9 once for unlimited lifetime checks, bulk URL checker (up to 50 URLs), CSV export, no ads. Pay once, use forever.",
   keywords: [
     "affiliate link checker pricing",
     "affiliate link checker pro",
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Pricing — Affiliate Link Checker: Free + $9 Lifetime Pro",
     description:
-      "Free forever. Sign up for 3 free checks a day. Go Pro for $9 lifetime: unlimited checks + bulk checker.",
+      "Sign up free for 3 checks per day. Or pay $9 once for unlimited lifetime Pro: bulk checker, CSV export, no ads.",
     url: "https://affiliate-link-checker.vercel.app/pricing",
     type: "website",
   },

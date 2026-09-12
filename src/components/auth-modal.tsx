@@ -68,9 +68,9 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
 
   const reasonText = {
     "rate-limit":
-      "You've used your free check today. Sign up to get 3 free checks per day, or go Pro for unlimited.",
+      "Sign up free to start checking affiliate links. Free accounts get 3 checks per day. No password needed, just a magic link to your email.",
     signup:
-      "Sign up to get 3 free checks per day instead of 1. It takes 10 seconds — no password, just a magic link to your email.",
+      "Sign up to get 3 free checks per day. It takes 10 seconds — no password, just a magic link to your email.",
     bulk:
       "Bulk URL checker is a Pro feature. Sign up first, then upgrade for $9 lifetime to unlock it.",
   }[reason]
@@ -113,7 +113,7 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
               {!sent ? (
                 <>
                   <h2 className="text-xl font-bold mb-1">
-                    {reason === "rate-limit" ? "You've hit the limit" : "Sign up for more checks"}
+                    {reason === "rate-limit" ? "Sign up to use the tool" : "Sign up for more checks"}
                   </h2>
                   <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
                     {reasonText}

@@ -18,30 +18,11 @@ import { supabase } from "@/lib/supabase-client"
 
 const tiers = [
   {
-    id: "anon",
+    id: "free",
     name: "Free",
     price: "$0",
     period: "forever",
-    tagline: "Try it out, no signup needed",
-    icon: Search,
-    color: "border-border/60",
-    features: [
-      { text: "1 affiliate check per day", included: true },
-      { text: "All 30+ affiliate networks detected", included: true },
-      { text: "FTC disclosure scanner", included: true },
-      { text: "Sample affiliate links list", included: true },
-      { text: "Bulk URL checker", included: false },
-      { text: "CSV / JSON export", included: false },
-      { text: "No daily limit", included: false },
-    ],
-    cta: "Start free",
-  },
-  {
-    id: "free",
-    name: "Signed-up",
-    price: "$0",
-    period: "forever",
-    tagline: "3x more checks, just sign up",
+    tagline: "Sign up free, no credit card needed",
     icon: Sparkles,
     color: "border-border/60",
     features: [
@@ -52,6 +33,7 @@ const tiers = [
       { text: "Magic-link login, no password", included: true },
       { text: "Bulk URL checker", included: false },
       { text: "CSV / JSON export", included: false },
+      { text: "No daily limit", included: false },
     ],
     cta: "Sign up free",
   },
@@ -85,10 +67,6 @@ export default function PricingPage() {
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
 
   const handleCta = (tierId: string) => {
-    if (tierId === "anon") {
-      router.push("/")
-      return
-    }
     if (tierId === "free") {
       if (auth.isAuthenticated) {
         router.push("/")
@@ -183,7 +161,7 @@ export default function PricingPage() {
               transition={{ duration: 0.7, delay: 0.05 }}
               className="text-4xl sm:text-6xl font-extrabold tracking-tight leading-[1.05] mb-6"
             >
-              Free forever. <span className="text-gradient-animated">Go Pro for $9.</span>
+              Sign up free. <span className="text-gradient-animated">Go Pro for $9.</span>
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -191,8 +169,7 @@ export default function PricingPage() {
               transition={{ duration: 0.7, delay: 0.12 }}
               className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto"
             >
-              One price, one time. No subscriptions, no monthly fees, no surprise charges.
-              Pay $9 once and get unlimited affiliate link checks for life.
+              Sign up free and get 3 checks per day. Or pay $9 once for unlimited checks forever. No subscriptions, no monthly fees, no surprise charges.
             </motion.p>
           </div>
         </div>
@@ -200,7 +177,7 @@ export default function PricingPage() {
 
       {/* ===== Pricing cards ===== */}
       <section className="container mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-4xl mx-auto">
           {tiers.map((tier, i) => (
             <motion.div
               key={tier.id}
