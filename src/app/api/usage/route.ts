@@ -21,18 +21,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(ANON_USAGE)
   }
 
-  // Determine tier
+  // Determine tier + name + email
   let tier: Tier = TIERS.FREE
   let email: string | null = null
+  let name: string | null = null
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('tier, email')
+    .select('tier, email, name')
     .eq('id', userId)
     .maybeSingle()
   if (profile?.tier === 'pro') tier = TIERS.PRO
   else if (profile?.tier === 'free') tier = TIERS.FREE
   else tier = TIERS.FREE
   email = profile?.email ?? null
+  name = profile?.name ?? null
 
   // Count today's usage
   const todayStart = new Date()
@@ -50,6 +52,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     tier,
     email,
+    name,
     userId,
     usedToday,
     limit,

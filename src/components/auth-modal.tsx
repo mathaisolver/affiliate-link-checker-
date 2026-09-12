@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  X, Mail, Loader2, CheckCircle2, ShieldCheck, Zap, Lock, User as UserIcon, Eye, EyeOff,
+  X, Mail, Loader2, CheckCircle2, ShieldCheck, Zap, Lock, User as UserIcon, Eye, EyeOff, ArrowLeft,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,16 +17,17 @@ interface AuthModalProps {
   reason?: "signup" | "rate-limit" | "bulk"
 }
 
-type Mode = "signup" | "login"
+type Mode = "signup" | "login" | "forgot"
 
 export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthModalProps) {
-  const [mode, setMode] = useState<Mode>(reason === "rate-limit" ? "signup" : "signup")
+  const [mode, setMode] = useState<Mode>("signup")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
 
   // Reset state when modal opens
   useEffect(() => {
@@ -37,6 +38,7 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
       setShowPassword(false)
       setLoading(false)
       setError(null)
+      setInfo(null)
       setMode(reason === "rate-limit" ? "signup" : "signup")
     }
   }, [open, reason])
@@ -57,6 +59,7 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setInfo(null)
 
     // Validation
     if (mode === "signup" && !name.trim()) {
@@ -67,16 +70,27 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
       setError("Please enter a valid email address")
       return
     }
-    if (!password || password.length < 6) {
+    if (mode !== "forgot" && (!password || password.length < 6)) {
       setError("Password must be at least 6 characters")
       return
     }
 
     setLoading(true)
     try {
-      if (mode === "signup") {
-        // Sign up with email + password + name (no email confirmation needed
-        // if "Confirm email" is OFF in Supabase dashboard)
+      if (mode === "forgot") {
+        // === FORGOT PASSWORD FLOW ===
+        // Sends a password reset email. NOTE: this requires SMTP to be configured.
+        // If SMTP is not set up, the user will see a success message but no email
+        // arrives. The reset link in Supabase's auth dashboard can be used as fallback.
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin,
+        })
+        if (resetError) throw resetError
+        setInfo("Password reset link sent. Check your email inbox.")
+        toast.success("Reset link sent — check your inbox")
+        // Stay on forgot screen so user sees the success message
+      } else if (mode === "signup") {
+        // === SIGNUP FLOW ===
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -92,16 +106,13 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
 
         // Check if email confirmation is required
         if (data?.user && !data?.session) {
-          // Email confirmation is enabled — tell the user to check their inbox
-          toast.success("Account created. Please check your email to confirm.")
+          setInfo("We sent a confirmation link to your email. Click it, then log in. (Tip: turn off email confirmation in Supabase to skip this step.)")
           setMode("login")
-          setError("We sent a confirmation link to your email. Click it, then log in. (Tip: turn off email confirmation in Supabase to skip this step.)")
         } else if (data?.session) {
-          // Email confirmation is OFF — already logged in
           toast.success("Welcome! Account created.")
         }
       } else {
-        // Login with email + password
+        // === LOGIN FLOW ===
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -126,6 +137,18 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
     bulk:
       "Bulk URL checker is a Pro feature. Sign up first, then upgrade for $9 lifetime to unlock it.",
   }[reason]
+
+  const title = {
+    signup: reason === "rate-limit" ? "Sign up to use the tool" : "Create your free account",
+    login: "Welcome back",
+    forgot: "Reset your password",
+  }[mode]
+
+  const submitText = {
+    signup: "Create free account",
+    login: "Log in",
+    forgot: "Send reset link",
+  }[mode]
 
   return (
     <AnimatePresence>
@@ -162,41 +185,51 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
                 <div className="font-bold text-base">Affiliate Link Checker</div>
               </div>
 
-              {/* Mode tabs */}
-              <div className="flex gap-1 p-1 rounded-lg bg-secondary/60 mb-5">
+              {/* Back button for forgot password mode */}
+              {mode === "forgot" && (
                 <button
                   type="button"
-                  onClick={() => setMode("signup")}
-                  className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    mode === "signup"
-                      ? "bg-card shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  onClick={() => { setMode("login"); setError(null); setInfo(null) }}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3"
                 >
-                  Create account
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back to login
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setMode("login")}
-                  className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    mode === "login"
-                      ? "bg-card shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Log in
-                </button>
-              </div>
+              )}
 
-              <h2 className="text-xl font-bold mb-1">
-                {mode === "signup" ? (
-                  reason === "rate-limit" ? "Sign up to use the tool" : "Create your free account"
-                ) : (
-                  "Welcome back"
-                )}
-              </h2>
+              {/* Mode tabs (signup / login) — hidden in forgot mode */}
+              {mode !== "forgot" && (
+                <div className="flex gap-1 p-1 rounded-lg bg-secondary/60 mb-5">
+                  <button
+                    type="button"
+                    onClick={() => { setMode("signup"); setError(null); setInfo(null) }}
+                    className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      mode === "signup"
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Create account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMode("login"); setError(null); setInfo(null) }}
+                    className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      mode === "login"
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Log in
+                  </button>
+                </div>
+              )}
+
+              <h2 className="text-xl font-bold mb-1">{title}</h2>
               <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-                {reasonText}
+                {mode === "forgot"
+                  ? "Enter your email and we'll send you a link to reset your password."
+                  : reasonText}
               </p>
 
               {/* Error banner */}
@@ -209,6 +242,20 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
                     className="mb-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-sm"
                   >
                     {error}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Info banner (for forgot password success / email confirmation notice) */}
+              <AnimatePresence>
+                {info && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-sm"
+                  >
+                    {info}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -238,29 +285,45 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
                     placeholder="you@example.com"
                     className="pl-10 h-12"
                     required
+                    autoFocus={mode === "forgot"}
                   />
                 </div>
 
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={mode === "signup" ? "Min 6 characters" : "Your password"}
-                    className="pl-10 pr-10 h-12"
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
+                {mode !== "forgot" && (
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={mode === "signup" ? "Min 6 characters" : "Your password"}
+                      className="pl-10 pr-10 h-12"
+                      required
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                )}
+
+                {/* Forgot password link (only on login mode) */}
+                {mode === "login" && (
+                  <div className="text-right -mt-1">
+                    <button
+                      type="button"
+                      onClick={() => { setMode("forgot"); setError(null); setInfo(null) }}
+                      className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
 
                 <Button
                   type="submit"
@@ -270,64 +333,72 @@ export function AuthModal({ open, onClose, onSuccess, reason = "signup" }: AuthM
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      {mode === "signup" ? "Creating account..." : "Logging in..."}
+                      {mode === "signup" ? "Creating account..." : mode === "login" ? "Logging in..." : "Sending link..."}
                     </>
                   ) : (
-                    mode === "signup" ? "Create free account" : "Log in"
+                    submitText
                   )}
                 </Button>
               </form>
 
-              <ul className="mt-5 space-y-2 text-xs text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
-                  <span>{mode === "signup" ? "No email confirmation needed." : "Your password is stored securely via Supabase Auth."}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
-                  <span>3 free checks per day for free accounts.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Zap className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
-                  <span>
-                    Want unlimited?{" "}
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="text-primary underline font-medium"
-                    >
-                      Go Pro for $9 lifetime
-                    </button>
-                  </span>
-                </li>
-              </ul>
+              {mode !== "forgot" && (
+                <ul className="mt-5 space-y-2 text-xs text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>
+                      {mode === "signup"
+                        ? "No email confirmation needed."
+                        : "Your password is stored securely via Supabase Auth."}
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>3 free checks per day for free accounts.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Zap className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <span>
+                      Want unlimited?{" "}
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        className="text-primary underline font-medium"
+                      >
+                        Go Pro for $9 lifetime
+                      </button>
+                    </span>
+                  </li>
+                </ul>
+              )}
 
-              {/* Switch mode link */}
-              <div className="mt-4 text-center text-xs text-muted-foreground">
-                {mode === "signup" ? (
-                  <>
-                    Already have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => { setMode("login"); setError(null) }}
-                      className="text-primary underline font-medium"
-                    >
-                      Log in
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    Don&apos;t have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => { setMode("signup"); setError(null) }}
-                      className="text-primary underline font-medium"
-                    >
-                      Sign up free
-                    </button>
-                  </>
-                )}
-              </div>
+              {/* Switch mode link (hidden in forgot mode) */}
+              {mode !== "forgot" && (
+                <div className="mt-4 text-center text-xs text-muted-foreground">
+                  {mode === "signup" ? (
+                    <>
+                      Already have an account?{" "}
+                      <button
+                        type="button"
+                        onClick={() => { setMode("login"); setError(null); setInfo(null) }}
+                        className="text-primary underline font-medium"
+                      >
+                        Log in
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      Don&apos;t have an account?{" "}
+                      <button
+                        type="button"
+                        onClick={() => { setMode("signup"); setError(null); setInfo(null) }}
+                        className="text-primary underline font-medium"
+                      >
+                        Sign up free
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="px-6 pb-5 -mt-2 text-center text-[11px] text-muted-foreground">

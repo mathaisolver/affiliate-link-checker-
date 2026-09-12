@@ -1,12 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   Search, Zap, Crown, Check, X, ArrowRight, ShieldCheck,
-  Sparkles, Rocket, FileText, Users,
+  Sparkles, Rocket, FileText, Users, LogOut,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -65,6 +65,7 @@ export default function PricingPage() {
   const { auth, signOut, refreshUsage } = useAuth()
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
 
   const handleCta = (tierId: string) => {
     if (tierId === "free") {
@@ -116,7 +117,7 @@ export default function PricingPage() {
               </span>
             )}
             {auth.isAuthenticated ? (
-              <Button onClick={signOut} variant="outline" size="sm">
+              <Button onClick={() => setConfirmSignOut(true)} variant="outline" size="sm">
                 Sign out
               </Button>
             ) : (
@@ -373,6 +374,58 @@ export default function PricingPage() {
         currentUserEmail={auth.email}
         onUpgraded={() => refreshUsage()}
       />
+
+      {/* Logout confirmation */}
+      <AnimatePresence>
+        {confirmSignOut && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setConfirmSignOut(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="relative w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl overflow-hidden p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+                  <LogOut className="w-5 h-5 text-rose-500" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base mb-1">Sign out?</h3>
+                  <p className="text-sm text-muted-foreground">
+                    You&apos;ll need to log in again to use the tool. Your account and any saved data will stay safe.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setConfirmSignOut(false)}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 h-10"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => { setConfirmSignOut(false); signOut() }}
+                  size="sm"
+                  className="flex-1 h-10 bg-rose-500 hover:bg-rose-600 text-white gap-1.5"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Sign out
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
