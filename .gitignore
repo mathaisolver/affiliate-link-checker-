@@ -63,5 +63,7 @@ server.log
 /db/
 /mini-services/
 /download/
+/upload/
+/scripts/
 Caddyfile
 .scripts/

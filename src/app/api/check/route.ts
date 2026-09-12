@@ -53,7 +53,62 @@ interface CheckResult {
   error?: string
 }
 
+/* ---------------------------------------------------------- */
+/* SOCIAL MEDIA / NON-AFFILIATE DOMAIN EXCLUSION              */
+/* Sites in this list are NEVER flagged as affiliate networks. */
+/* Their share links have query params that look like affiliate */
+/* tags (e.g. facebook.com/sharer.php?u=...) and were causing   */
+/* false positives.                                            */
+/* ---------------------------------------------------------- */
+const NON_AFFILIATE_DOMAINS: string[] = [
+  'facebook.com', 'www.facebook.com', 'm.facebook.com', 'fb.com',
+  'twitter.com', 'x.com', 'www.twitter.com',
+  'linkedin.com', 'www.linkedin.com',
+  'instagram.com', 'www.instagram.com',
+  'pinterest.com', 'www.pinterest.com', 'pin.it',
+  'youtube.com', 'www.youtube.com', 'youtu.be',
+  'tiktok.com', 'www.tiktok.com',
+  'reddit.com', 'www.reddit.com',
+  'whatsapp.com', 'wa.me',
+  'telegram.org', 't.me',
+  'snapchat.com',
+  'tumblr.com',
+  'medium.com',
+  'github.com',
+  'gitlab.com',
+  'stackoverflow.com',
+  'wikipedia.org',
+  'google.com', 'www.google.com',
+  'bing.com',
+  'duckduckgo.com',
+  'apple.com', 'www.apple.com',
+  'microsoft.com',
+  'mozilla.org',
+  'adobe.com',
+  'amazon.com',  // Handled by Amazon Associates specifically (not generic)
+  'amzn.to',
+  'paypal.com',
+  'stripe.com',
+  'mailto:',  // email links
+  'tel:',     // phone links
+  'sms:',     // sms links
+  'whatsapp:', 'telegram:', 'signal:', 'skype:', 'facetime:',
+]
+
+function isNonAffiliateDomain(url: string): boolean {
+  try {
+    const u = new URL(url)
+    const host = u.hostname.toLowerCase()
+    return NON_AFFILIATE_DOMAINS.some((d) => host === d || host.endsWith('.' + d) || host === d.replace(/^www\./, ''))
+  } catch {
+    return false
+  }
+}
+
 // ----- Affiliate network signatures -----
+// IMPORTANT: Patterns must be SPECIFIC to that network, not generic query params.
+// Generic patterns like `?ref=`, `?u=`, `?url=`, `?id=` cause false positives on
+// social media share URLs and have been removed.
 const AFFILIATE_NETWORKS: {
   name: string
   domains: string[]
@@ -69,20 +124,24 @@ const AFFILIATE_NETWORKS: {
       'amazon.in', 'amazon.com.au', 'amazon.com.br', 'amazon.com.mx',
       'amazon.ae', 'amazon.sg', 'amazon.sa', 'amazon.nl', 'amazon.se',
       'amazon.pl', 'amazon.be', 'amazon.eg', 'amazon.tr',
-      'www.amazon.com', 'a.co', 'amzn.asia',
+      'a.co', 'amzn.asia',
     ],
     patterns: [
-      /[?&]tag=[a-zA-Z0-9_-]+/i,
-      /[?&]linkCode=/i,
-      /[?&]linkId=/i,
-      /[?&]creativeASIN=/i,
+      // VERY specific to Amazon Associates: tag= followed by an actual associate ID pattern
+      /[?&]tag=[a-zA-Z0-9_-]+-\d{1,3}\b/i,
+      // linkCode= + linkId= combo is Amazon-specific
+      /[?&]linkCode=[a-zA-Z0-9_-]+/i,
+      /[?&]linkId=[a-zA-Z0-9]+/i,
+      /[?&]creativeASIN=[A-Z0-9]{10}/i,
       /[?&]ascsubtag=/i,
-      /[?&]camp=/i,
-      /[?&]creative=/i,
-      /\/dp\/[A-Z0-9]{10}/i,
-      /\/gp\/product\//i,
+      // ASIN path patterns (Amazon specific)
+      /\/dp\/[A-Z0-9]{10}\b/i,
+      /\/gp\/product\/[A-Z0-9]{10}/i,
       /\/exec\/obidos\//i,
-      /\/gp\/aw\/d\//i,
+      /\/gp\/aw\/d\/[A-Z0-9]{10}/i,
+      // amzn.to short link
+      /^https?:\/\/amzn\.to\//i,
+      /^https?:\/\/a\.co\//i,
     ],
     category: 'Retail / Marketplace',
     disclosureHints: [
@@ -94,12 +153,13 @@ const AFFILIATE_NETWORKS: {
   {
     name: 'Impact Radius',
     domains: [
-      'impact.com', 'impactradius.com', 'imp.af', 'go.imp',
-      'impact.com/go', 'sub impacts', 'sub.id.impact',
+      'impact.com', 'impactradius.com', 'imp.af',
     ],
     patterns: [
-      /[?&]subId1=/i, /[?&]subId2=/i, /[?&]subId3=/i,
-      /[?&]irclickid=/i, /[?&]irgwc=/i,
+      // Impact-specific subId params (always paired with impact.com)
+      /[?&]subId1=[a-zA-Z0-9_-]+/i,
+      /[?&]irclickid=[a-zA-Z0-9_-]+/i,
+      /[?&]irgwc=[a-zA-Z0-9_-]+/i,
       /impact\.com\/go\//i,
     ],
     category: 'Affiliate Network',
@@ -107,10 +167,16 @@ const AFFILIATE_NETWORKS: {
   },
   {
     name: 'ShareASale',
-    domains: ['shareasale.com', 'shareasale-analytics.com', 'shareasale-affiliate', 'shrsl.com'],
+    domains: ['shareasale.com', 'shareasale-analytics.com', 'shrsl.com'],
     patterns: [
-      /[?&]afftrack=/i, /[?&]sscid=/i, /[?&]u=/i, /[?&]affID=/i,
-      /shareasale\.com\/r\.cfm/i, /shareasale\.com\/m-pr/i, /shrsl\.com\//i,
+      // ShareASale-specific: afftrack= + sscid= (SSC ID is shareasale-specific)
+      /[?&]afftrack=[a-zA-Z0-9_-]+/i,
+      /[?&]sscid=[a-zA-Z0-9_-]+/i,
+      // ShareASale URL patterns (very specific)
+      /shareasale\.com\/r\.cfm/i,
+      /shareasale\.com\/m-pr/i,
+      /shareasale\.com\/sale-process/i,
+      /^https?:\/\/shrsl\.com\//i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['shareasale', 'share a sale', 'share-a-sale'],
@@ -118,16 +184,20 @@ const AFFILIATE_NETWORKS: {
   {
     name: 'CJ Affiliate (Commission Junction)',
     domains: [
-      'cj.com', 'qksrv.net', 'kqzyfj.com', 'tkqlhao.com', 'qksz.net',
+      // CJ-specific tracking domains only — these are very specific
+      'qksrv.net', 'kqzyfj.com', 'tkqlhao.com', 'qksz.net',
       'tqlkg.com', 'dxklopm.com', 'anrdoezrs.net', 'emjcd.com',
       'jdoqocy.com', 'afcyhb.com', 'apmebf.com', 'ftjcfx.com',
-      'kcdhlny.com', 'lduhtrp.net', 'pjnet.xyz', 'linksynergy.com',
-      'click.linksynergy.com', 'roverlinks.com', 'nativelinkmonetization.com',
+      'kcdhlny.com', 'lduhtrp.net', 'pjnet.xyz',
+      'click.linksynergy.com', 'linksynergy.com',
+      'roverlinks.com',
     ],
     patterns: [
-      /[?&]cmp=/i, /[?&]lp=/i, /[?&]url=/i,
-      /[?&]pub=/i, /[?&]websiteid=/i, /[?&]publisher=/i,
-      /linksynergy\.com\/fs-bin\/static/i, / commission junction /i,
+      // CJ-specific URL params (URL= + CMP= + LP= combo is CJ-specific)
+      /[?&]url=.{20,}/i,  // URL= with a longer value (avoid short share URLs)
+      /linksynergy\.com\/fs-bin\/static/i,
+      // CJ tracking domain with click redirect
+      /\.(qksrv|kqzyfj|tkqlhao|jdoqocy|anrdoezrs|emjcd|afcyhb|apmebf|ftjcfx|kcdhlny|lduhtrp|pjnet|tqlkg|dxklopm|qksz)\.net\//i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['commission junction', 'cj affiliate', 'linksynergy', 'cj.com'],
@@ -135,19 +205,23 @@ const AFFILIATE_NETWORKS: {
   {
     name: 'Rakuten Advertising (LinkShare)',
     domains: [
-      'rakutenadvertising.com', 'linksynergy.com', 'rakuten.com',
-      'rakuten.co.jp', 'click.linksynergy.com', 'rakutenmarketing.com',
-      'rakutenadvertising.net', 'linksynergy.net',
+      'rakutenadvertising.com', 'click.linksynergy.com',
+      'rakutenmarketing.com',
     ],
     category: 'Affiliate Network',
     disclosureHints: ['rakuten', 'rakuten advertising', 'rakuten marketing', 'linkshare'],
   },
   {
     name: 'Awin',
-    domains: ['awin1.com', 'awin.com', 'zenaps.com', 'wintricks.com', 'awin1.net', 'zenaps.net'],
+    domains: ['awin1.com', 'awin.com', 'zenaps.com'],
     patterns: [
-      /[?&]clickref=/i, /[?&]awinaffid=/i, /[?&]awinmid=/i, /[?&]pled=/i,
-      /awin1\.com\/cread\.php/i, /awin1\.com\/sread\.php/i,
+      // Awin-specific: clickref=, awinaffid=, awinmid=, pled=
+      /[?&]clickref=[a-zA-Z0-9_-]+/i,
+      /[?&]awinaffid=\d+/i,
+      /[?&]awinmid=\d+/i,
+      /[?&]pled=\d+/i,
+      /awin1\.com\/cread\.php/i,
+      /awin1\.com\/sread\.php/i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['awin', 'awin affiliate', 'awin1'],
@@ -156,87 +230,107 @@ const AFFILIATE_NETWORKS: {
     name: 'Skimlinks',
     domains: [
       'go.skimresources.com', 'skimresources.com', 'skimlinks.com',
-      'go.redirectingat.com', 'redirectingat.com',
+      'go.redirectingat.com',
     ],
     patterns: [
-      /[?&]xs=1/i, /[?&]id=/i, /go\.skimresources\.com\?id=/i,
+      // Skimlinks-specific: only count if it's a skim resource domain
+      /go\.skimresources\.com\//i,
+      /go\.redirectingat\.com\//i,
+      /skimlinks\.com\//i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['skimlinks', 'skimlinks affiliate', 'skim resources'],
   },
   {
     name: 'ClickBank',
-    domains: [
-      'clickbank.net', 'clickbank.com', 'hop.clickbank.net',
-      '1.payloadbeta.com', 'hoplinks.com', 'zzzzz.clickbank.net',
-      'paydotcom.com', 'pay.spree.com', 'resellerheaven.com',
-    ],
+    domains: ['clickbank.net', 'hop.clickbank.net', 'hoplinks.com'],
     patterns: [
-      /[?&]hop=/i, /[?&]vendor=/i, /[?&]affiliate=/i,
-      /hop\.clickbank\.net/i, /\.clickbank\.net\//i,
+      // ClickBank hop= param is very specific
+      /[?&]hop=[a-zA-Z0-9_-]+/i,
+      /hop\.clickbank\.net/i,
+      /\.clickbank\.net\//i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['clickbank', 'click bank'],
   },
   {
     name: 'AvantLink',
-    domains: ['avantlink.com', 'avlnk.net', 'avlnk.com', 'avantmetrics.com'],
+    domains: ['avantlink.com', 'avlnk.net'],
     patterns: [
-      /[?&]ctc=/i, /[?&]p=/i, /[?&]af=/i, /[?&]pri=/i, /[?&]ct=/i,
-      /avlnk\.net\//i, /avantlink\.com\/click\.phtml/i,
+      // AvantLink-specific: ctc= + pri= + af= (with avantlink domain)
+      /[?&]ctc=[a-zA-Z0-9_-]+/i,
+      /[?&]pri=\d+/i,
+      /[?&]ct=[a-zA-Z0-9_-]+/i,
+      /avlnk\.net\//i,
+      /avantlink\.com\/click\.phtml/i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['avantlink', 'avant link'],
   },
   {
     name: 'PartnerStack',
-    domains: ['partnerstack.com', 'psell.co', 'appsumo.8base.com', 'partnerstack.net'],
+    domains: ['partnerstack.com', 'psell.co'],
     patterns: [
-      /[?&]psid=/i, /[?&]pgi=/i, /partnerstack\.com\/p\//i,
+      // PartnerStack-specific: psid= + pgi=
+      /[?&]psid=[a-zA-Z0-9_-]+/i,
+      /[?&]pgi=[a-zA-Z0-9_-]+/i,
+      /partnerstack\.com\/p\//i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['partnerstack', 'partner stack'],
   },
   {
     name: 'Refersion',
-    domains: ['refersion.com', 'rfer.us', 'rfer.us.rdir'],
+    domains: ['refersion.com', 'rfer.us'],
     patterns: [
-      /[?&]affid=/i, /[?&]afref=/i, /rfer\.us\//i,
+      // Refersion-specific: afref=
+      /[?&]afref=[a-zA-Z0-9_-]+/i,
+      /^https?:\/\/rfer\.us\//i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['refersion'],
   },
   {
     name: 'Post Affiliate Pro',
-    domains: ['qualityunit.com', 'postaffiliatepro.com', 'affiliate-pro.com', 'papexnet.com'],
+    domains: ['qualityunit.com', 'postaffiliatepro.com'],
     patterns: [
-      /[?&]a_aid=/i, /[?&]a_bid=/i, /[?&]a_cid=/i, /postaffiliatepro\.com\/scripts\//i,
+      // Post Affiliate Pro: a_aid= + a_bid= + a_cid= combo
+      /[?&]a_aid=[a-zA-Z0-9_-]+/i,
+      /[?&]a_bid=[a-zA-Z0-9_-]+/i,
+      /[?&]a_cid=[a-zA-Z0-9_-]+/i,
+      /postaffiliatepro\.com\/scripts\//i,
     ],
     category: 'Affiliate Software',
     disclosureHints: ['post affiliate pro', 'qualityunit'],
   },
   {
     name: 'Tapfiliate',
-    domains: ['tapfiliate.com', 'tapfiliate.net'],
-    patterns: [/[?&]ref=/i, /tapfiliate\.com\/l\//i],
+    domains: ['tapfiliate.com'],
+    patterns: [
+      // Tapfiliate-specific URL pattern
+      /tapfiliate\.com\/l\//i,
+    ],
     category: 'Affiliate Software',
     disclosureHints: ['tapfiliate'],
   },
   {
     name: 'HasOffers / Tune',
-    domains: ['hasoffers.com', 'tune.com', 'go2cloud.org', 'go2app.com', 'tunenetwork.com'],
+    domains: ['hasoffers.com', 'tune.com', 'go2cloud.org', 'go2app.com'],
     patterns: [
-      /[?&]transaction_id=/i, /[?&]aff_id=/i, /[?&]offer_id=/i,
-      /[?&]adv_id=/i, /[?&]source=/i, /go2cloud\.org\/aff_c/i,
+      // HasOffers/Tune-specific: transaction_id= + offer_id= combo
+      /[?&]transaction_id=[a-zA-Z0-9_-]+/i,
+      /[?&]offer_id=\d+/i,
+      /go2cloud\.org\/aff_c/i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['hasoffers', 'tune.com affiliate', 'tune network'],
   },
   {
     name: 'TradeDoubler',
-    domains: ['tradedoubler.com', 'td.eu', 'clmbtrk.com', 'tddltrk.com'],
+    domains: ['tradedoubler.com', 'clmbtrk.com', 'tddltrk.com'],
     patterns: [
-      /[?&]p=/i, /[?&]a=/i, /[?&]epi=/i, /[?&]g=/i,
+      // TradeDoubler-specific: epi= + p= combo (with tradedoubler domain)
+      /[?&]epi=[a-zA-Z0-9_-]+/i,
       /tradedoubler\.com\/click/i,
     ],
     category: 'Affiliate Network',
@@ -244,9 +338,11 @@ const AFFILIATE_NETWORKS: {
   },
   {
     name: 'Webgains',
-    domains: ['webgains.com', 'wg-aff.com', 'webgains.net'],
+    domains: ['webgains.com', 'wg-aff.com'],
     patterns: [
-      /[?&]wgref=/i, /[?&]ac=/i, /[?&]cs=/i, /wg-aff\.com\/click\.php/i,
+      // Webgains-specific: wgref= + cs= combo
+      /[?&]wgref=[a-zA-Z0-9_-]+/i,
+      /wg-aff\.com\/click\.php/i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['webgains'],
@@ -254,11 +350,14 @@ const AFFILIATE_NETWORKS: {
   {
     name: 'eBay Partner Network',
     domains: [
-      'rover.ebay.com', 'ebay.com', 'partners.ebay.com', 'epn.ebay.com',
-      'epnt.ebay.com', 'rover.ebay.co.uk', 'rover.ebay.de', 'rover.ebay.fr',
+      'rover.ebay.com', 'partners.ebay.com', 'epn.ebay.com',
+      'epnt.ebay.com',
     ],
     patterns: [
-      /[?&]campid=\d+/i, /[?&]customid=/i, /[?&]toolid=/i, /[?&]mpre=/i,
+      // eBay-specific: campid= + customid= + toolid= combo (very specific)
+      /[?&]campid=\d{5,}/i,
+      /[?&]customid=[a-zA-Z0-9_-]+/i,
+      /[?&]toolid=\d+/i,
       /rover\.ebay\.com\/rover\//i,
     ],
     category: 'Marketplace Affiliate',
@@ -268,16 +367,21 @@ const AFFILIATE_NETWORKS: {
     name: 'Walmart Affiliate Program',
     domains: ['affiliates.walmart.com', 'walmart.com/go', 'affil.walmart.com'],
     patterns: [
-      /[?&]affil=/i, /[?&]wl1=/i, /[?&]wl2=/i, /walmart\.com\/go\/aff/i,
+      // Walmart-specific: affil= + wl1= combo
+      /[?&]affil=[a-zA-Z0-9_-]+/i,
+      /[?&]wl1=[a-zA-Z0-9_-]+/i,
+      /walmart\.com\/go\/aff/i,
     ],
     category: 'Retail Affiliate',
     disclosureHints: ['walmart affiliate', 'walmart.com affiliate'],
   },
   {
     name: 'Booking.com Affiliate',
-    domains: ['booking.com', 'bookingsync.com', 'b.com/affiliate'],
+    domains: ['booking.com'],
     patterns: [
-      /[?&]aid=\d{5,}/i, /[?&]label=/i, /[?&]sid=/i, /[?&]tmpl=/i,
+      // Booking.com: aid= with 5+ digit number (very specific)
+      /[?&]aid=\d{5,}/i,
+      /[?&]label=[a-zA-Z0-9_-]+/i,
     ],
     category: 'Travel Affiliate',
     disclosureHints: ['booking.com affiliate', 'booking affiliate partner'],
@@ -285,24 +389,32 @@ const AFFILIATE_NETWORKS: {
   {
     name: 'ShopStyle',
     domains: ['shopstyle.com', 'shopstyle.it', 'shopstyle.co.uk'],
-    patterns: [/[?&]pid=/i, /[?&]bid=/i, /shopstyle\.com\/action\//i],
+    patterns: [
+      // ShopStyle-specific: pid= + bid= combo (with shopstyle domain)
+      /shopstyle\.com\/action\//i,
+    ],
     category: 'Affiliate Network',
     disclosureHints: ['shopstyle'],
   },
   {
     name: 'RewardStyle / LTK',
-    domains: ['rewardstyle.com', 'ltkapp.com', 'rstyle.me', 'rstyle.to', 'liketk.it'],
+    domains: ['rewardstyle.com', 'ltkapp.com', 'rstyle.me', 'liketk.it'],
     patterns: [
-      /[?&]affiliate=/i, /rstyle\.me\//i, /liketk\.it\//i,
+      // RewardStyle-specific URL patterns
+      /^https?:\/\/rstyle\.me\//i,
+      /^https?:\/\/liketk\.it\//i,
+      /rewardstyle\.com\//i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['rewardstyle', 'ltk', 'liketk.it', 'like to know it'],
   },
   {
-    name: 'VigLink / Sovrn',
-    domains: ['viglink.com', 'sovrn.com', 'sovrn.co', 'redirect.viglink.com'],
+    name: 'VigLink / Sovrn Commerce',
+    domains: ['redirect.viglink.com', 'viglink.com'],
     patterns: [
-      /[?&]key=/i, /[?&]u=/i, /[?&]libid=/i, /redirect\.viglink\.com\?/i,
+      // VigLink-specific URL pattern (redirect.viglink.com?...)
+      /redirect\.viglink\.com\?/i,
+      /[?&]libid=[a-zA-Z0-9_-]+/i,
     ],
     category: 'Affiliate Network',
     disclosureHints: ['viglink', 'sovrn', 'sovrn commerce'],
@@ -311,30 +423,32 @@ const AFFILIATE_NETWORKS: {
     name: 'Etsy Affiliate',
     domains: ['etsy.com'],
     patterns: [
-      /[?&]aff=awsmerch/i, /[?&]aff=[a-zA-Z0-9]+/i,
-      /[?&]ref=/i, /etsy\.com\/store\//i,
+      // Etsy-specific: aff= with specific patterns
+      /[?&]aff=awsmerch/i,
     ],
     category: 'Marketplace Affiliate',
     disclosureHints: ['etsy affiliate', 'etsy associates'],
   },
   {
     name: 'AliExpress Affiliate',
-    domains: [
-      's.click.aliexpress.com', 'aliexpress.com', 'aliexpress.com/e/_9Ni',
-      'portals.aliexpress.com', 's.click.aliexpress.com/e/_A',
-    ],
+    domains: ['s.click.aliexpress.com', 'portals.aliexpress.com'],
     patterns: [
-      /[?&]aff_fcid=/i, /[?&]aff_click_id=/i, /[?&]dl_id=/i,
-      /s\.click\.aliexpress\.com\//i,
+      // AliExpress affiliate-specific params
+      /[?&]aff_fcid=[a-zA-Z0-9_-]+/i,
+      /[?&]aff_click_id=[a-zA-Z0-9_-]+/i,
+      /[?&]dl_id=[a-zA-Z0-9_-]+/i,
+      /^https?:\/\/s\.click\.aliexpress\.com\//i,
     ],
     category: 'Marketplace Affiliate',
     disclosureHints: ['aliexpress affiliate', 'portals affiliate program', 'aliexpress portais'],
   },
   {
     name: 'Target Partners',
-    domains: ['target.com', 'partners.target.com', 'target.com/c/'],
+    domains: ['partners.target.com', 'target.com'],
     patterns: [
-      /[?&]ref=/i, /[?&]cpng=/i, /partners\.target\.com\//i,
+      // Target-specific: cpng= + ref= combo on target.com
+      /[?&]cpng=[a-zA-Z0-9_-]+/i,
+      /partners\.target\.com\//i,
     ],
     category: 'Retail Affiliate',
     disclosureHints: ['target partners', 'target affiliate', 'target.com affiliate'],
@@ -343,43 +457,44 @@ const AFFILIATE_NETWORKS: {
     name: 'ConvertKit Affiliate',
     domains: ['convertkit.com', 'ck-maker.ck.page'],
     patterns: [
-      /[?&]ref=/i, /[?&]am_id=/i, /convertkit\.com\/referr?/i,
+      /[?&]am_id=[a-zA-Z0-9_-]+/i,
+      /convertkit\.com\/referr?/i,
     ],
     category: 'SaaS Affiliate',
     disclosureHints: ['convertkit affiliate'],
   },
   {
     name: 'Shopify Affiliate',
-    domains: ['shopify.com', 'partners.shopify.com', 'my.shopify.com'],
+    domains: ['partners.shopify.com'],
     patterns: [
-      /[?&]ref=/i, /[?&]partner=/i, /partners\.shopify\.com\//i,
+      /partners\.shopify\.com\//i,
     ],
     category: 'SaaS Affiliate',
     disclosureHints: ['shopify affiliate', 'shopify partners'],
   },
   {
     name: 'WP Engine Affiliate',
-    domains: ['wpengine.com', 'share-wpengine.com', 'wpengine.net'],
+    domains: ['wpengine.com', 'share-wpengine.com'],
     patterns: [
-      /[?&]afftrack=/i, /[?&]a_aid=/i, /share-wpengine\.com\//i,
+      /share-wpengine\.com\//i,
     ],
     category: 'SaaS Affiliate',
     disclosureHints: ['wp engine affiliate', 'wpengine affiliate'],
   },
   {
     name: 'Kinsta Affiliate',
-    domains: ['kinsta.com', 'kinsta.cloud', 'ref.kinsta.com'],
+    domains: ['kinsta.com', 'ref.kinsta.com'],
     patterns: [
-      /[?&]kaid=/i, /[?&]ref=/i, /ref\.kinsta\.com\//i,
+      /[?&]kaid=[a-zA-Z0-9_-]+/i,
+      /ref\.kinsta\.com\//i,
     ],
     category: 'SaaS Affiliate',
     disclosureHints: ['kinsta affiliate'],
   },
   {
     name: 'Bluehost Affiliate',
-    domains: ['bluehost.com', 'bluehosttrack.com', 'track.bluehost.com'],
+    domains: ['bluehost.com', 'bluehosttrack.com'],
     patterns: [
-      /[?&]affiliate=/i, /[?&]am_id=/i, /[?&]ref=/i,
       /bluehosttrack\.com\//i,
     ],
     category: 'Web Hosting Affiliate',
@@ -387,161 +502,261 @@ const AFFILIATE_NETWORKS: {
   },
   {
     name: 'SiteGround Affiliate',
-    domains: ['siteground.com', 'siteground.net', 'affiliates.siteground.com'],
+    domains: ['siteground.com', 'affiliates.siteground.com'],
     patterns: [
-      /[?&]affiliate=/i, /[?&]ref=/i, /affiliates\.siteground\.com\//i,
+      /affiliates\.siteground\.com\//i,
     ],
     category: 'Web Hosting Affiliate',
     disclosureHints: ['siteground affiliate'],
   },
   {
     name: 'Liquid Web Affiliate',
-    domains: ['liquidweb.com', 'liquidweb.net', 'affiliates.liquidweb.com'],
+    domains: ['liquidweb.com', 'affiliates.liquidweb.com'],
     patterns: [
-      /[?&]aff=/i, /[?&]ref=/i, /affiliates\.liquidweb\.com\//i,
+      /affiliates\.liquidweb\.com\//i,
     ],
     category: 'Web Hosting Affiliate',
     disclosureHints: ['liquid web affiliate'],
   },
   {
     name: 'HostGator Affiliate',
-    domains: ['hostgator.com', 'hostgator.net', 'affiliates.hostgator.com'],
+    domains: ['hostgator.com', 'affiliates.hostgator.com'],
     patterns: [
-      /[?&]aff=/i, /[?&]ref=/i, /hostgator\.com\/affiliate/i,
+      /hostgator\.com\/affiliate/i,
     ],
     category: 'Web Hosting Affiliate',
     disclosureHints: ['hostgator affiliate'],
   },
   {
     name: 'Coursera Affiliate',
-    domains: ['coursera.org', 'coursera.com', 'affiliate.coursera.org'],
+    domains: ['coursera.org', 'affiliate.coursera.org'],
     patterns: [
-      /[?&]affiliateID=/i, /[?&]ref=/i, /coursera\.org\/promote/i,
+      /[?&]affiliateID=[a-zA-Z0-9_-]+/i,
+      /coursera\.org\/promote/i,
     ],
     category: 'Education Affiliate',
     disclosureHints: ['coursera affiliate'],
   },
   {
     name: 'Udemy Affiliate',
-    domains: ['udemy.com', 'udemy.net', 'affiliates.udemy.com'],
+    domains: ['udemy.com', 'affiliates.udemy.com'],
     patterns: [
-      /[?&]affCode=/i, /[?&]ref=/i, /udemy\.com\/affiliate/i,
+      /[?&]affCode=[a-zA-Z0-9_-]+/i,
+      /udemy\.com\/affiliate/i,
     ],
     category: 'Education Affiliate',
     disclosureHints: ['udemy affiliate'],
   },
   {
     name: 'Skillshare Affiliate',
-    domains: ['skillshare.com', 'skillshare.net'],
-    patterns: [/[?&]affiliate=/i, /[?&]ref=/i, /skillshare\.com\/r\//i],
+    domains: ['skillshare.com'],
+    patterns: [
+      /skillshare\.com\/r\//i,
+    ],
     category: 'Education Affiliate',
     disclosureHints: ['skillshare affiliate'],
   },
   {
     name: 'Teachable Affiliate',
-    domains: ['teachable.com', 'teachable.net'],
-    patterns: [/[?&]ref=/i, /[?&]aff=/i, /teachable\.com\/affiliate/i],
+    domains: ['teachable.com'],
+    patterns: [
+      /teachable\.com\/affiliate/i,
+    ],
     category: 'Education Affiliate',
     disclosureHints: ['teachable affiliate'],
   },
   {
     name: 'Thinkific Affiliate',
-    domains: ['thinkific.com', 'thinkific.net'],
-    patterns: [/[?&]ref=/i, /[?&]aff=/i, /thinkific\.com\/affiliate/i],
+    domains: ['thinkific.com'],
+    patterns: [
+      /thinkific\.com\/affiliate/i,
+    ],
     category: 'Education Affiliate',
     disclosureHints: ['thinkific affiliate'],
   },
   {
     name: 'Patreon Affiliate',
-    domains: ['patreon.com', 'patreon.net'],
-    patterns: [/[?&]ref=/i, /[?&]u=/i, /patreon\.com\/affiliate/i],
+    domains: ['patreon.com'],
+    patterns: [
+      /patreon\.com\/affiliate/i,
+    ],
     category: 'Creator Affiliate',
     disclosureHints: ['patreon affiliate'],
   },
   {
     name: 'Adobe Affiliate',
-    domains: ['adobe.com', 'adobe.net', 'partners.adobe.com'],
+    domains: ['partners.adobe.com'],
     patterns: [
-      /[?&]ref=/i, /[?&]affiliate=/i, /[?&]promoid=/i, /[?&]mv=/i,
+      /[?&]promoid=[a-zA-Z0-9_-]+/i,
+      /partners\.adobe\.com\//i,
     ],
     category: 'Software Affiliate',
     disclosureHints: ['adobe affiliate', 'adobe partners'],
   },
   {
     name: 'ClickFunnels Affiliate',
-    domains: ['clickfunnels.com', 'clickfunnels.net'],
-    patterns: [/[?&]affiliate_id=/i, /[?&]ref=/i, /clickfunnels\.com\/affiliate/i],
+    domains: ['clickfunnels.com'],
+    patterns: [
+      /clickfunnels\.com\/affiliate/i,
+    ],
     category: 'SaaS Affiliate',
     disclosureHints: ['clickfunnels affiliate'],
   },
   {
     name: 'Namecheap Affiliate',
-    domains: ['namecheap.com', 'namecheap.net'],
-    patterns: [/[?&]aff=/i, /[?&]ref=/i, /namecheap\.com\/affiliate/i],
+    domains: ['namecheap.com'],
+    patterns: [
+      /namecheap\.com\/affiliate/i,
+    ],
     category: 'Domain Affiliate',
     disclosureHints: ['namecheap affiliate'],
   },
   {
     name: 'Best Buy Affiliate',
-    domains: ['bestbuy.com', 'affiliates.bestbuy.com', 'bestbuy.ca'],
-    patterns: [/[?&]ref=/i, /[?&]aff=/i, /bestbuy\.com\/affiliate/i],
+    domains: ['affiliates.bestbuy.com', 'bestbuy.com'],
+    patterns: [
+      /bestbuy\.com\/affiliate/i,
+      /affiliates\.bestbuy\.com\//i,
+    ],
     category: 'Retail Affiliate',
     disclosureHints: ['best buy affiliate'],
   },
 ]
 
 // ----- Ad networks -----
+// IMPORTANT: Use very specific patterns. For Google AdSense, require the actual
+// AdSense script (adsbygoogle.js) or google_ad_client variable. Do NOT match
+// googlesyndication.com alone because Mediavine, AdThrive, Raptive etc. all use
+// Google Ad Manager (DFP) which serves through the same domain.
 const AD_NETWORKS: { name: string; domain: string; type: string; patterns?: RegExp[] }[] = [
-  { name: 'Google AdSense', domain: 'google.com/adsense', type: 'Display Ads', patterns: [/google_ad_client/i, /googlesyndication\.com/i, /adsbygoogle\.js/i, /pub-\d{16,}/i, /pagead2\.googlesyndication\.com/i] },
-  { name: 'Media.net', domain: 'media.net', type: 'Display Ads', patterns: [/media\.net/i, /media\.net\/ads/i, /media\.net\/mediakit/i] },
-  { name: 'Amazon Associates (Display)', domain: 'amazon-adsystem.com', type: 'Native Ads', patterns: [/amazon-adsystem\.com/i, /aax-us-east\.amazon-adsystem\.com/i, /aax-eu\.amazon-adsystem\.com/i] },
-  { name: 'AdThrive', domain: 'adthrive.com', type: 'Display Ads', patterns: [/adthrive\.com/i, /ads\.adthrive\.com/i] },
-  { name: 'Mediavine', domain: 'mediavine.com', type: 'Display Ads', patterns: [/mediavine\.com/i, /scripts\.mediavine\.com/i, /mediavine\.com\/trends/i] },
-  { name: 'AdSense for Search', domain: 'google.com', type: 'Search Ads', patterns: [/google_afc/i, /google_afc_/i] },
-  { name: 'Taboola', domain: 'taboola.com', type: 'Native Ads', patterns: [/taboola\.com/i, /cdn\.taboola\.com/i, /libtrc\.com/i] },
-  { name: 'Outbrain', domain: 'outbrain.com', type: 'Native Ads', patterns: [/outbrain\.com/i, /widgets\.outbrain\.com/i, /outbrain\.com\/norm/i] },
-  { name: 'Ezoic', domain: 'ezoic.com', type: 'Display Ads', patterns: [/ezoic\.com/i, /ezojs\.com/i, /ezoic\.com\/pub/i] },
-  { name: 'Sovrn (Ads)', domain: 'sovrn.com', type: 'Display Ads', patterns: [/sovrn\.com\/ads/i, /lixif/i, /sovrn\.com\/bdc/i] },
-  { name: 'Carbon Ads', domain: 'carbonads.com', type: 'Developer Ads', patterns: [/carbonads\.com/i, /carbonads/i, /srv\.carbonads\.net/i] },
-  { name: 'BuySellAds', domain: 'buysellads.com', type: 'Marketplace Ads', patterns: [/buysellads\.com/i, /bsads/i, /bsads\.com/i] },
-  { name: 'Infolinks', domain: 'infolinks.com', type: 'Inline Ads', patterns: [/infolinks\.com/i, /infolinks\.com\/ps/i] },
-  { name: 'AdMob', domain: 'google.com', type: 'Mobile Ads', patterns: [/google_admob/i, /apps\.admob\.com/i, /google_mobileads\.js/i] },
-  { name: 'Raptive', domain: 'raptive.com', type: 'Display Ads', patterns: [/raptive\.com/i, /raptive-ad/i, /raptive\.com\/ad/i] },
-  { name: 'Adsterra', domain: 'adsterra.com', type: 'Display Ads', patterns: [/adsterra\.com/i, /adsterra\.net/i] },
-  { name: 'PropellerAds', domain: 'propellerads.com', type: 'Display Ads', patterns: [/propellerads\.com/i, /propellerads\.net/i] },
-]
-
-// General affiliate query parameters (used as a fallback detection)
-const GENERIC_AFFILIATE_PARAMS = [
-  'aff', 'affid', 'aff_id', 'affiliate', 'affiliate_id', 'ref', 'refid', 'ref_id',
-  'clickid', 'click_id', 'cid', 'campaign', 'cmp', 'utm_affiliate', 'partner',
-  'subid', 'sub_id', 'tid', 'track', 'tracking', 'atid', 'ptag', 'irclickid',
-  'utm_source=affiliate', 'p1', 'irclickid2', 'irclickid3', 'aff_sub',
-  'sub_id1', 'sub_id2', 'sub_id3', 'subid1', 'subid2', 'subid3',
-  'clickref', 'clickref1', 'clickref2', 'clickref3',
-  'afftrack', 'sscid', 'awinaffid', 'awinmid', 'pub', 'publisher',
-  'promo', 'promocode', 'coupon', 'deal', 'offer', 'offer_id',
-  'aff_id1', 'aff_id2', 'aff_id3', 'a_aid', 'a_bid', 'a_cid',
-  'am_id', 'ad_id', 'adid', 'adv_id', 'advid', 'afftrack2',
-  'ircampid', 'irgwc', 'irpid', 'irmpid', 'ircid',
-  'go', 'redir', 'redirect', 'target', 'destination',
-]
-
-// Affiliate redirect subdomains (very strong signal)
-const AFFILIATE_SUBDOMAIN_PREFIXES = [
-  'go.', 'redirect.', 'track.', 'hop.', 'out.', 'aff.', 'jump.',
-  'click.', 'refer.', 'ref.', 'r.', 'link.', 'links.', 'deals.',
-  'visit.', 'partner.', 'partners.', 'promo.', 'sponsor.', 'sponsored.',
-  'buys.', 'buy.', 'shop.', 'join.', 'get.', 'try.', 'review.',
+  {
+    name: 'Google AdSense',
+    domain: 'google.com/adsense',
+    type: 'Display Ads',
+    patterns: [
+      // AdSense-specific: adsbygoogle.js script + google_ad_client variable
+      /adsbygoogle\.js/i,
+      /google_ad_client\s*=\s*["']ca-pub-\d{16,}["']/i,
+      /pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/i,
+      /ca-pub-\d{16,}/i,
+    ],
+  },
+  {
+    name: 'Media.net',
+    domain: 'media.net',
+    type: 'Display Ads',
+    patterns: [/media\.net\/mediakit/i, /media\.net\/ads\/v/i, /contextual\.media\.net/i],
+  },
+  {
+    name: 'Amazon Associates (Display)',
+    domain: 'amazon-adsystem.com',
+    type: 'Native Ads',
+    patterns: [/aax-us-east\.amazon-adsystem\.com/i, /aax-eu\.amazon-adsystem\.com/i, /amazon-adsystem\.com\/x\/c/i],
+  },
+  {
+    name: 'AdThrive',
+    domain: 'adthrive.com',
+    type: 'Display Ads',
+    patterns: [/adthrive\.com/i, /ads\.adthrive\.com/i, /adthrive\.com\/ads/i],
+  },
+  {
+    name: 'Mediavine',
+    domain: 'mediavine.com',
+    type: 'Display Ads',
+    patterns: [/scripts\.mediavine\.com/i, /mediavine\.com\/trends/i, /mediavine\.com\/ads/i],
+  },
+  {
+    name: 'Raptive',
+    domain: 'raptive.com',
+    type: 'Display Ads',
+    patterns: [/raptive\.com\/ad/i, /raptive-ad/i],
+  },
+  {
+    name: 'Ezoic',
+    domain: 'ezoic.com',
+    type: 'Display Ads',
+    patterns: [/ezoic\.com\/pub/i, /ezojs\.com/i, /g\.ezoic\.net/i],
+  },
+  {
+    name: 'Taboola',
+    domain: 'taboola.com',
+    type: 'Native Ads',
+    patterns: [/cdn\.taboola\.com/i, /libtrc\.com/i, /taboola\.com\/libtrc/i],
+  },
+  {
+    name: 'Outbrain',
+    domain: 'outbrain.com',
+    type: 'Native Ads',
+    patterns: [/widgets\.outbrain\.com/i, /outbrain\.com\/norm/i],
+  },
+  {
+    name: 'Sovrn (Ads)',
+    domain: 'sovrn.com',
+    type: 'Display Ads',
+    patterns: [/sovrn\.com\/ads/i, /sovrn\.com\/bdc/i, /lixil\.com/i],
+  },
+  {
+    name: 'Carbon Ads',
+    domain: 'carbonads.com',
+    type: 'Developer Ads',
+    patterns: [/carbonads\.com/i, /srv\.carbonads\.net/i],
+  },
+  {
+    name: 'BuySellAds',
+    domain: 'buysellads.com',
+    type: 'Marketplace Ads',
+    patterns: [/buysellads\.com/i, /bsads\.com/i],
+  },
+  {
+    name: 'Infolinks',
+    domain: 'infolinks.com',
+    type: 'Inline Ads',
+    patterns: [/infolinks\.com\/ps/i, /infolinks\.com\/js\/i/i],
+  },
+  {
+    name: 'Adsterra',
+    domain: 'adsterra.com',
+    type: 'Display Ads',
+    patterns: [/adsterra\.com\/media/i, /pl\d+\.adsterra\.com/i],
+  },
+  {
+    name: 'PropellerAds',
+    domain: 'propellerads.com',
+    type: 'Display Ads',
+    patterns: [/propellerads\.com\/media/i, /propellerads\.net\/media/i],
+  },
 ]
 
 // Affiliate indicator attributes (in <a> tags)
 const AFFILIATE_DATA_ATTRS = [
   'data-affiliate', 'data-affiliate-link', 'data-affiliate-network',
   'data-affiliate-id', 'data-aff', 'data-af', 'data-affiliate-tag',
-  'data-tag', 'data-partner', 'data-sponsor', 'data-sponsored',
-  'data-tracking', 'data-track', 'data-click-id', 'data-ref',
-  'data-Referral', 'data-referral', 'data-coupon', 'data-offer',
+  'data-partner', 'data-sponsor', 'data-sponsored',
+  'data-click-id', 'data-Referral', 'data-referral',
+]
+
+// Affiliate redirect subdomains (very strong signal)
+// NOTE: must be paired with the link going to a DIFFERENT domain than the source
+const AFFILIATE_SUBDOMAIN_PREFIXES = [
+  'go.', 'redirect.', 'track.', 'hop.', 'out.', 'aff.', 'jump.',
+  'click.', 'refer.', 'r.', 'link.', 'links.', 'deals.',
+  'visit.', 'partner.', 'partners.', 'promo.', 'sponsor.', 'sponsored.',
+  'buys.', 'buy.', 'shop.', 'join.', 'get.', 'try.', 'review.',
+]
+
+// Removed the very generic params from this list. We now require a network-specific
+// pattern to match. Generic 'ref=' or 'aff=' alone are NOT enough anymore because
+// many non-affiliate URLs (UTM tags, internal tracking) use them too.
+const GENERIC_AFFILIATE_PARAMS: string[] = [
+  // Very specific affiliate param names (not used by social media or normal analytics)
+  'afftrack', 'awinaffid', 'awinmid', 'clickref',
+  'irclickid', 'irgwc', 'irpid', 'irmpid', 'ircid', 'ircampid',
+  'sscid', 'afref', 'kaid', 'ascsubtag',
+  'aff_fcid', 'aff_click_id', 'dl_id',
+  'transaction_id', 'offer_id', 'aff_sub', 'aff_sub2', 'aff_sub3',
+  'clickref1', 'clickref2', 'clickref3',
+  'sub_id1', 'sub_id2', 'sub_id3', 'subid1', 'subid2', 'subid3',
+  'psid', 'pgi', 'am_id', 'a_aid', 'a_bid', 'a_cid',
 ]
 
 const DISCLOSURE_KEYWORDS = [
@@ -552,7 +767,7 @@ const DISCLOSURE_KEYWORDS = [
   'at no additional cost to you', 'paid commission',
   'this post contains affiliate', 'this page contains affiliate',
   'may contain affiliate', 'compensated for referring',
-  'federal trade commission', 'ftc', 'advertising fees',
+  'federal trade commission', 'advertising fees',
   'advertising and linking', 'please note that this post contains affiliate',
   'sponsored content', 'sponsored post', 'sponsored by',
   'this article contains affiliate links',
@@ -593,7 +808,6 @@ function decodeHtmlEntities(s: string): string {
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
 }
 
-// Holder for current origin (used for favicon resolution)
 const baseUrlHolder: { url: string } = { url: '' }
 
 interface ExtractedLink {
@@ -605,7 +819,6 @@ interface ExtractedLink {
 
 function extractLinks(html: string, baseUrl: URL): ExtractedLink[] {
   const links: ExtractedLink[] = []
-  // Catch <a ... href="..." ...> ... </a>, with attributes both before and after href
   const aTagRegex = /<a\b([^>]*?)href\s*=\s*["']([^"']+)["']([^>]*?)>([\s\S]*?)<\/a>/gi
   let m: RegExpExecArray | null
   while ((m = aTagRegex.exec(html)) !== null) {
@@ -615,7 +828,6 @@ function extractLinks(html: string, baseUrl: URL): ExtractedLink[] {
     const fullAttrs = beforeHref + afterHref
     const text = decodeHtmlEntities(m[4].replace(/<[^>]+>/g, '').trim())
 
-    // Extract rel attribute
     const relMatch = fullAttrs.match(/rel\s*=\s*["']([^"']+)["']/i)
     const rel = relMatch ? relMatch[1].toLowerCase() : ''
 
@@ -628,33 +840,6 @@ function extractLinks(html: string, baseUrl: URL): ExtractedLink[] {
       // ignore
     }
   }
-
-  // Also catch standalone <a href> tags without closing tag (rare but possible)
-  const aSelfRegex = /<a\b([^>]*?)href\s*=\s*["']([^"']+)["']([^>]*?)>/gi
-  while ((m = aSelfRegex.exec(html)) !== null) {
-    const beforeHref = m[1] || ''
-    const rawHref = m[2]
-    const afterHref = m[3] || ''
-    const fullAttrs = beforeHref + afterHref
-    // Skip if we already captured this as part of a paired tag (heuristic: same href and same starting attrs)
-    const alreadyCaptured = links.some(
-      (l) =>
-        l.href === rawHref ||
-        (rawHref.startsWith('/') && l.href.endsWith(rawHref))
-    )
-    if (alreadyCaptured) continue
-    const relMatch = fullAttrs.match(/rel\s*=\s*["']([^"']+)["']/i)
-    const rel = relMatch ? relMatch[1].toLowerCase() : ''
-    try {
-      const resolved = new URL(rawHref, baseUrl).toString()
-      if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
-        links.push({ href: resolved, text: '', rel, attrs: fullAttrs })
-      }
-    } catch {
-      // ignore
-    }
-  }
-
   return links
 }
 
@@ -694,7 +879,6 @@ function extractMetaAndOg(html: string): {
     og.find((x) => x.property === 'og:description')?.content ||
     null
 
-  // favicon detection
   let favicon: string | null = null
   const iconRegex = /<link\b[^>]*?rel\s*=\s*["'](?:shortcut )?icon["'][^>]*?href\s*=\s*["']([^"']+)["'][^>]*>/i
   const iconMatch = html.match(iconRegex)
@@ -756,10 +940,13 @@ function hasAffiliateDataAttr(attrs: string): string | null {
   return null
 }
 
-function isAffiliateSubdomain(href: string): boolean {
+function isAffiliateSubdomain(href: string, sourceHost: string): boolean {
   const u = safeParseUrl(href)
   if (!u) return false
   const host = u.hostname.toLowerCase()
+  // The link must go to a DIFFERENT host than the source (otherwise it's an internal navigation)
+  if (host === sourceHost || host.endsWith('.' + sourceHost)) return false
+  // The host must start with one of the affiliate subdomain prefixes
   return AFFILIATE_SUBDOMAIN_PREFIXES.some((p) => host.startsWith(p))
 }
 
@@ -779,6 +966,7 @@ export async function POST(req: NextRequest) {
   const startedAt = Date.now()
   const targetUrl = new URL(normalized)
   baseUrlHolder.url = targetUrl.origin
+  const sourceHost = targetUrl.hostname.toLowerCase()
 
   const result: CheckResult = {
     url: rawUrl.trim(),
@@ -808,7 +996,6 @@ export async function POST(req: NextRequest) {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000)
 
-    // Set a realistic browser User-Agent so more sites return full HTML
     const res = await fetch(normalized, {
       headers: {
         'User-Agent':
@@ -875,7 +1062,7 @@ export async function POST(req: NextRequest) {
     const linkSeen = new Set<string>()
     let sponsoredLinksCount = 0
 
-    // First pass: count rel="sponsored" links (strong affiliate signal)
+    // Count rel="sponsored" links first (strong affiliate signal)
     for (const link of links) {
       if (link.rel && (link.rel.includes('sponsored') || link.rel.includes('affiliated'))) {
         sponsoredLinksCount++
@@ -894,12 +1081,55 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Smart exclusion: if Mediavine OR AdThrive OR Raptive is detected, Google AdSense
+    // is most likely a FALSE POSITIVE (these networks use Google Ad Manager / DFP, not
+    // AdSense, but the same googlesyndication.com domain is used). Remove AdSense from
+    // the detected list to avoid confusion.
+    const hasPremiumAdNetwork =
+      detectedAdNetworks.has('Mediavine') ||
+      detectedAdNetworks.has('AdThrive') ||
+      detectedAdNetworks.has('Raptive')
+    if (hasPremiumAdNetwork && detectedAdNetworks.has('Google AdSense')) {
+      // Only remove AdSense if the ONLY evidence is googlesyndication.com (not
+      // an actual adsbygoogle.js script). To detect that, we re-test with the
+      // strict pattern: adsbygoogle.js or ca-pub- ID.
+      const strictAdSense =
+        /adsbygoogle\.js/i.test(html) ||
+        /ca-pub-\d{16,}/i.test(html) ||
+        /google_ad_client\s*=\s*["']ca-pub-/i.test(html)
+      if (!strictAdSense) {
+        detectedAdNetworks.delete('Google AdSense')
+      }
+    }
+
     // Main affiliate link detection
     for (const link of links) {
       const hrefLower = link.href.toLowerCase()
       const urlObj = safeParseUrl(link.href)
       let matchedNetwork: string | null = null
       let reason = ''
+
+      // SKIP: non-affiliate domains (social media, search engines, mailto:, etc.)
+      // These should NEVER be flagged as affiliate networks. This was the cause
+      // of the false positives where Facebook and LinkedIn share URLs were being
+      // flagged as CJ Affiliate / ShareASale links.
+      if (isNonAffiliateDomain(link.href)) {
+        // Still check rel="sponsored" — even social links can be sponsored
+        if (link.rel && link.rel.includes('sponsored')) {
+          const key = link.href + '|Rel=Sponsored Link'
+          if (!linkSeen.has(key)) {
+            linkSeen.add(key)
+            detectedAffiliateLinks.push({
+              url: link.href,
+              network: 'Rel=Sponsored Link',
+              text: link.text || '(no anchor text)',
+              rel: link.rel,
+              reason: 'Link marked with rel="sponsored"',
+            })
+          }
+        }
+        continue
+      }
 
       // 1) rel="sponsored" or rel="affiliated" = strong signal
       if (link.rel && (link.rel.includes('sponsored') || link.rel.includes('affiliated'))) {
@@ -937,6 +1167,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 4) Pattern match (URL parameters / path patterns)
+      // NOTE: Patterns are now very strict and network-specific.
       if (!matchedNetwork) {
         for (const net of AFFILIATE_NETWORKS) {
           if (net.patterns && net.patterns.some((p) => p.test(link.href))) {
@@ -956,8 +1187,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 5) Affiliate subdomain (go., redirect., track., etc.)
-      if (!matchedNetwork && isAffiliateSubdomain(link.href)) {
+      // 5) Affiliate subdomain (go., redirect., track., etc.) on a different host
+      if (!matchedNetwork && isAffiliateSubdomain(link.href, sourceHost)) {
         const u = safeParseUrl(link.href)
         if (u && u.hostname !== finalUrl.hostname) {
           matchedNetwork = 'Affiliate Redirect Subdomain'
@@ -965,34 +1196,13 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 6) Generic affiliate query parameters
+      // 6) Generic affiliate query parameters (very strict list)
       if (!matchedNetwork && urlObj) {
         const params = urlObj.searchParams
-        const hasGeneric = GENERIC_AFFILIATE_PARAMS.some((p) => {
-          if (params.has(p)) return true
-          for (const k of params.keys()) {
-            if (k.toLowerCase() === p || k.toLowerCase().startsWith(p + '_')) return true
-          }
-          return false
-        })
-        if (hasGeneric) {
+        const matchedParam = GENERIC_AFFILIATE_PARAMS.find((p) => params.has(p))
+        if (matchedParam) {
           matchedNetwork = 'Generic Affiliate Link'
-          reason = 'URL contains generic affiliate tracking parameter'
-        }
-      }
-
-      // 7) rel="nofollow" + external + ad-like link = last resort check
-      if (!matchedNetwork && link.rel && link.rel.includes('nofollow') && urlObj) {
-        // Only mark if external + has some tracking hint
-        const hasTrackingHint =
-          urlObj.searchParams.toString().length > 0 &&
-          GENERIC_AFFILIATE_PARAMS.some((p) => {
-            const params = urlObj.searchParams
-            return params.has(p) || Array.from(params.keys()).some((k) => k.toLowerCase().includes(p.slice(0, 3)))
-          })
-        if (hasTrackingHint) {
-          matchedNetwork = 'Nofollow Tracked Link'
-          reason = 'rel="nofollow" with tracking parameters'
+          reason = `URL contains affiliate tracking param: ${matchedParam}=`
         }
       }
 
@@ -1037,8 +1247,6 @@ export async function POST(req: NextRequest) {
     result.affiliateLinks = detectedAffiliateLinks.slice(0, 200)
     result.disclosure = disclosure
     result.stats.affiliateLinksCount = detectedAffiliateLinks.length
-    // Affiliate is true if: any affiliate link found, OR any network detected,
-    // OR disclosure found, OR any rel=sponsored link
     result.isAffiliate =
       detectedAffiliateLinks.length > 0 ||
       result.affiliateNetworks.length > 0 ||
