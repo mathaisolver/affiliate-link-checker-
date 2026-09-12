@@ -14,34 +14,106 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Affiliate Link Checker — Detect Affiliate Programs, Ad Networks & Disclosures",
+  metadataBase: new URL("https://affiliate-link-checker.vercel.app"),
+  title: "Affiliate Link Checker — Check Amazon & Affiliate Links Free",
   description:
-    "Free affiliate link checker. Paste any URL to detect affiliate programs, ad networks, affiliate links, and disclosure pages. Powered by 30+ network signatures.",
+    "Free affiliate link checker. Paste any URL to check affiliate links, find broken Amazon links, detect affiliate tags, see the final URL, and audit outbound links. No sign up.",
   keywords: [
     "affiliate link checker",
-    "affiliate program detector",
-    "affiliate disclosure finder",
-    "ad network detector",
-    "amazon associates checker",
-    "shareasale",
-    "impact",
+    "amazon affiliate link checker",
+    "link checker",
+    "affiliate link tester",
+    "broken affiliate links",
+    "broken amazon links",
+    "affiliate links",
+    "amazon links",
+    "affiliate tags",
+    "affiliate id",
+    "affiliate network",
     "cj affiliate",
+    "amazon associates",
+    "check link",
+    "broken links",
+    "dead links",
+    "shortened links",
+    "outbound links",
+    "affiliate urls",
+    "tracking links",
+    "final url",
+    "http status",
+    "asin",
+    "affiliate marketing",
+    "affiliate programs",
+    "affiliate revenue",
+    "affiliate income",
+    "affiliate marketers",
+    "advertiser",
+    "attribution",
+    "affiliate tracking",
+    "deep link",
+    "destination url",
+    "wordpress",
+    "plugins",
+    "google analytics",
+    "google",
+    "youtube",
+    "alerts",
+    "click",
+    "page",
+    "urls",
+    "tags",
+    "users",
   ],
   authors: [{ name: "Affiliate Link Checker" }],
+  creator: "Affiliate Link Checker",
+  publisher: "Affiliate Link Checker",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: ["/favicon.svg"],
+  },
+  manifest: undefined,
   openGraph: {
-    title: "Affiliate Link Checker",
+    title: "Affiliate Link Checker — Check Amazon & Affiliate Links Free",
     description:
-      "Detect affiliate programs, ad networks, and disclosures on any website in seconds.",
+      "Free tool to check affiliate links on any page. Find broken Amazon links, detect affiliate tags, audit outbound links, and view the final URL of each link.",
     url: "https://affiliate-link-checker.vercel.app",
     siteName: "Affiliate Link Checker",
     type: "website",
+    images: [
+      {
+        url: "/favicon.svg",
+        width: 32,
+        height: 32,
+        alt: "Affiliate Link Checker logo",
+      },
+    ],
   },
   twitter: {
-    card: "summary_large_image",
-    title: "Affiliate Link Checker",
+    card: "summary",
+    title: "Affiliate Link Checker — Check Amazon & Affiliate Links Free",
     description:
-      "Detect affiliate programs, ad networks, and disclosures on any website in seconds.",
+      "Free tool to check affiliate links on any page. Find broken Amazon links, detect affiliate tags, audit outbound links.",
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+    },
+  },
+  alternates: {
+    canonical: "https://affiliate-link-checker.vercel.app",
+  },
+  category: "marketing",
 };
 
 export default function RootLayout({
@@ -51,6 +123,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.svg" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >

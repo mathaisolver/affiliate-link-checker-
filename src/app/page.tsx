@@ -5,9 +5,11 @@ import { motion, AnimatePresence, useInView } from "framer-motion"
 import {
   Search, Link2, ShieldCheck, Sparkles, Zap, Globe, ArrowRight,
   CheckCircle2, AlertTriangle, XCircle, ExternalLink, Copy,
-  Tag, Layers, FileText, MousePointerClick, Code2, Github,
+  Tag, Layers, FileText, MousePointerClick, Code2,
   TrendingUp, Eye, ScanLine, Loader2, ChevronDown, ArrowUpRight,
   BadgeCheck, Network, Fingerprint, Building2, Star, Rocket,
+  BookOpen, PenLine, AlertCircle, LinkIcon, Target,
+  Wrench, Lightbulb, Users,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,6 +41,8 @@ interface AffiliateLink {
   url: string
   network: string
   text: string
+  rel?: string
+  reason?: string
 }
 interface Disclosure {
   found: boolean
@@ -55,6 +59,7 @@ interface CheckResult {
   affiliateNetworks: AffiliateNetwork[]
   adNetworks: AdNetwork[]
   affiliateLinks: AffiliateLink[]
+  sponsoredLinksCount: number
   disclosure: Disclosure
   metaTags: { name: string; content: string }[]
   openGraph: { property: string; content: string }[]
@@ -185,6 +190,9 @@ export default function Home() {
       {/* ===== Features ===== */}
       {!loading && !result && <Features />}
 
+      {/* ===== SEO Guide & Content ===== */}
+      {!loading && !result && <SeoGuide />}
+
       {/* ===== How It Works ===== */}
       {!loading && !result && <HowItWorks />}
 
@@ -221,16 +229,9 @@ function TopNav() {
           <a href="#features" className="hover:text-foreground transition-colors">Features</a>
           <a href="#how-it-works" className="hover:text-foreground transition-colors">How it works</a>
           <a href="#networks" className="hover:text-foreground transition-colors">Networks</a>
+          <a href="#guide" className="hover:text-foreground transition-colors">Guide</a>
         </nav>
         <div className="flex items-center gap-2">
-          <a
-            href="https://github.com/mathaisolver/affiliate-link-checker-"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border/60 hover:border-foreground/30 hover:bg-secondary/40 transition-all"
-          >
-            <Github className="w-3.5 h-3.5" /> Star on GitHub
-          </a>
           <Button asChild size="sm" className="gap-1.5">
             <a href="#checker">
               Try it <ArrowRight className="w-3.5 h-3.5" />
@@ -927,6 +928,313 @@ function Features() {
 }
 
 /* ---------------------------------------------------------- */
+/* SEO Guide & Content (1000+ words, human-style)              */
+/* ---------------------------------------------------------- */
+function SeoGuide() {
+  return (
+    <section id="guide" className="py-20 sm:py-24 border-t border-border/40">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="max-w-3xl mx-auto text-center mb-14"
+        >
+          <Badge variant="outline" className="rounded-full px-3 py-1 mb-4 gap-1.5">
+            <BookOpen className="w-3 h-3 text-primary" /> The Guide
+          </Badge>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
+            How to use the <span className="text-gradient">affiliate link checker</span>
+          </h2>
+          <p className="text-muted-foreground text-base sm:text-lg">
+            A short guide on how to check your links, find broken ones, and keep your page in good shape.
+          </p>
+        </motion.div>
+
+        <article className="max-w-3xl mx-auto prose-content space-y-12">
+          {/* Section 1 */}
+          <div id="what-is-an-affiliate-link-checker" className="scroll-mt-24">
+            <div className="flex items-center gap-2 mb-4">
+              <PenLine className="w-5 h-5 text-primary" />
+              <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                What is an affiliate link checker?
+              </h3>
+            </div>
+            <div className="space-y-4 text-base sm:text-lg leading-relaxed text-muted-foreground">
+              <p>
+                If you post links on the web to earn, you need to check each one. That is where an{" "}
+                <a href="#checker" className="text-primary hover:underline font-medium">affiliate link checker</a>{" "}
+                helps. I made this free tool so you can scan a page and see all links at once. It works
+                as a <a href="#how-it-works" className="text-primary hover:underline font-medium">link checker</a>{" "}
+                for any site, big or small.
+              </p>
+              <p>
+                You paste a URL, hit check, and get a clear list in secs. The tool tells you what
+                links are on that page. It shows if a link goes to Amazon, CJ Affiliate, or any top{" "}
+                <a href="#networks" className="text-primary hover:underline font-medium">affiliate network</a>.
+                It also spots dead links and broken links that hurt your rank on Google.
+                When I check link data on my own blog each week, this tool saves me hours.
+              </p>
+              <p>
+                Many users do not know that affiliate marketing has rules. You must show a clear
+                disclosure if you earn from links. My tool finds the affiliate disclosure for you so
+                you can stay on the right side of the FTC.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 2 */}
+          <div id="why-check-your-affiliate-links" className="scroll-mt-24">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle className="w-5 h-5 text-primary" />
+              <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                Why you need to check your links
+              </h3>
+            </div>
+            <div className="space-y-4 text-base sm:text-lg leading-relaxed text-muted-foreground">
+              <p>
+                If you write a blog or run a site, links add up fast. Some go to Amazon. Some go
+                to other <a href="#networks" className="text-primary hover:underline font-medium">affiliate programs</a>.
+                Some are just plain page URLs. It is hard to keep track of all of them.
+              </p>
+              <p>
+                When a link breaks, you lose clicks. Lost clicks mean lost affiliate income. I have
+                seen this on my own site. One dead Amazon link can cost you a lot over a year. Broken
+                affiliate links also hurt your SEO. Google looks at outbound links as a vote. If too
+                many go to dead pages, your rank may drop.
+              </p>
+              <p>
+                With this tool, you can check a page in just a few secs. You see the final URL, the
+                HTTP status, and the affiliate id if one is used. You can fix bad links fast before
+                they hurt your affiliate revenue. A broken link checker is a must for any blog that
+                earns from links.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 3 */}
+          <div id="find-broken-amazon-links" className="scroll-mt-24">
+            <div className="flex items-center gap-2 mb-4">
+              <Wrench className="w-5 h-5 text-primary" />
+              <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                Find broken Amazon links fast
+              </h3>
+            </div>
+            <div className="space-y-4 text-base sm:text-lg leading-relaxed text-muted-foreground">
+              <p>
+                Amazon links break a lot. They change ASIN codes, drop items, or move pages. If you
+                post Amazon links, you need to check them often. This is why I added a full amazon
+                affiliate link checker to the tool.
+              </p>
+              <p>
+                If you are part of Amazon Associates, you know that links can break in many ways.
+                Our amazon affiliate link checker looks at each Amazon URL on your page. It shows
+                the ASIN, the tag, and the destination URL. If the link is dead, you can fix it or
+                remove it. The tool also finds broken amazon links that point to sold out or moved
+                items.
+              </p>
+              <p>
+                The tool also finds broken affiliate links from other top networks like{" "}
+                <a href="#networks" className="text-primary hover:underline font-medium">CJ Affiliate</a>{" "}
+                and ShareASale. This helps you keep all your tracking links in good shape. It works
+                as a full affiliate link tester for your site. A deep link to a product page works
+                better than a home page link, so I check each one to make sure it still goes where
+                it should.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 4 */}
+          <div id="how-the-check-works" className="scroll-mt-24">
+            <div className="flex items-center gap-2 mb-4">
+              <ScanLine className="w-5 h-5 text-primary" />
+              <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                How the check works
+              </h3>
+            </div>
+            <div className="space-y-4 text-base sm:text-lg leading-relaxed text-muted-foreground">
+              <p>
+                Step one: you paste a page URL in the box. Step two: I scan the page in secs. Step
+                three: you get a full report. Here is what you get:
+              </p>
+              <ul className="space-y-2 ml-1">
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />A list of all links on the page</li>
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />Each affiliate network I found</li>
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />The HTTP status of the page</li>
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />A short text on each link</li>
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />Any affiliate disclosure text on the page</li>
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />The final URL of each link</li>
+              </ul>
+              <p>
+                You can copy the full report as JSON or save it as a file. This is great if you want
+                to track links over time or share with your team. You can also use it to check your
+                own page before you post it.
+              </p>
+              <p>
+                Some links use rel="sponsored" tags, which Google asks sites to use on affiliate
+                links. I detect these tags and show them in the report. This helps you see if your
+                links are set up the right way for SEO.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 5 */}
+          <div id="spot-affiliate-tags" className="scroll-mt-24">
+            <div className="flex items-center gap-2 mb-4">
+              <Tag className="w-5 h-5 text-primary" />
+              <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                Spot affiliate tags and IDs
+              </h3>
+            </div>
+            <div className="space-y-4 text-base sm:text-lg leading-relaxed text-muted-foreground">
+              <p>
+                Each affiliate link has a tag or id. Amazon uses the tag= param. Other networks use
+                aff=, ref=, or click_id=. I scan for all of these in URLs.
+              </p>
+              <p>
+                When I find a tag, I show it to you. This helps you see if a link is yours or not. If
+                you write for a brand, you can check if they use your affiliate id. If you check a
+                rival page, you can see what tags they use for attribution.
+              </p>
+              <p>
+                The tool also finds shortened links like amzn.to and bit.ly. These often hide an
+                affiliate URL. I follow the redirect to find the final URL for you. The tool also
+                looks at tracking links and shows you where they go. This helps you see the true
+                path of each click.
+              </p>
+              <p>
+                If you are an advertiser, you can use this tool to check if your partners link to
+                you the right way. You can see the affiliate tags they use and make sure you get
+                credit for the click. This is key for your affiliate tracking and your affiliate
+                revenue.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 6 */}
+          <div id="check-outbound-links" className="scroll-mt-24">
+            <div className="flex items-center gap-2 mb-4">
+              <LinkIcon className="w-5 h-5 text-primary" />
+              <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                Check outbound links and disclosures
+              </h3>
+            </div>
+            <div className="space-y-4 text-base sm:text-lg leading-relaxed text-muted-foreground">
+              <p>
+                Outbound links are links on your page that go to other sites. Some are affiliate URLs.
+                Some are not. It is good to know which is which. Too many outbound links can hurt
+                your page rank. Google and the FTC ask sites to show a clear affiliate disclosure if
+                they earn from links.
+              </p>
+              <p>
+                My tool finds the disclosure text for you. It also tells you if a page uses
+                rel="sponsored" tags, which Google asks sites to use on affiliate links. If you are
+                an advertiser, you can check if your partners link to you the right way.
+              </p>
+              <p>
+                You can also check if a page has a clear affiliate disclosure. The tool finds FTC
+                style disclosure text on the page. This helps affiliate marketers stay on the right
+                side of the rules. A good affiliate disclosure can save you from a fine and keep
+                your users trust.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 7 */}
+          <div id="who-uses-this-tool" className="scroll-mt-24">
+            <div className="flex items-center gap-2 mb-4">
+              <Users className="w-5 h-5 text-primary" />
+              <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                Who uses this tool?
+              </h3>
+            </div>
+            <div className="space-y-4 text-base sm:text-lg leading-relaxed text-muted-foreground">
+              <p>
+                Blog writers use it to check their own pages. SEO pros use it to audit client sites.
+                Affiliate marketers use it to spy on rival pages. Brands use it to see who links to
+                them. If you use WordPress, you can run this check on each post before you hit
+                publish. You do not need any plugins. Just paste the URL and hit check.
+              </p>
+              <p>
+                If you have a YouTube channel, you can check the links in your video notes too. Just
+                paste the page URL where your notes live. The tool shows you all links on that page
+                in one list. This is great for users who want to keep their video notes fresh and
+                free of dead links.
+              </p>
+              <p>
+                I built this as a free web tool so any user can use it. No sign up. No fee. You can
+                run as many checks as you want. You can also link your Google Analytics data to see
+                what links get the most clicks, then use this tool to keep those links live.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 8 */}
+          <div id="tips" className="scroll-mt-24">
+            <div className="flex items-center gap-2 mb-4">
+              <Lightbulb className="w-5 h-5 text-primary" />
+              <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                Tips to get more from your links
+              </h3>
+            </div>
+            <div className="space-y-4 text-base sm:text-lg leading-relaxed text-muted-foreground">
+              <p>Here are a few tips I use on my own site:</p>
+              <ul className="space-y-2.5 ml-1">
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />Check each new post for broken links before you post it</li>
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />Run a full link check on old posts once a month</li>
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />Fix dead links or swap them out with new ones</li>
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />Use a clear affiliate tag so you get credit for the click</li>
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />Add a good disclosure on each page with affiliate links</li>
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />Set up alerts so you know right away when a link breaks</li>
+                <li className="flex gap-2.5"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />Watch your Google Analytics to see what links get the most clicks</li>
+              </ul>
+              <p>
+                If you do these, your affiliate revenue will grow over time. A good link checker is
+                the base of a strong link plan. You can also use this tool to find new affiliate
+                programs to join. Just check a page in your niche and see what networks they use.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 9 */}
+          <div id="try-now" className="scroll-mt-24">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="w-5 h-5 text-primary" />
+              <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                Try the free affiliate link checker now
+              </h3>
+            </div>
+            <div className="space-y-4 text-base sm:text-lg leading-relaxed text-muted-foreground">
+              <p>
+                This tool is free for all users. You do not need to log in. You do not need to pay.
+                You can run as many checks as you want. I made it for folks like me who write online
+                and need a fast way to check links.
+              </p>
+              <p>
+                Try it now. Paste a URL up top and hit{" "}
+                <a href="#checker" className="text-primary hover:underline font-medium">check</a>. In
+                secs, you get your full link report. You can save the report, share it with your
+                team, or use it to fix bad links fast. No fluff. No ads in your face. Just a clean
+                tool that does the job.
+              </p>
+              <p>
+                Want to see more? Check out the{" "}
+                <a href="#features" className="text-primary hover:underline font-medium">features</a>,{" "}
+                <a href="#how-it-works" className="text-primary hover:underline font-medium">how it works</a>,{" "}
+                or the{" "}
+                <a href="#networks" className="text-primary hover:underline font-medium">networks</a>{" "}
+                we detect.
+              </p>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  )
+}
+
+/* ---------------------------------------------------------- */
 /* How It Works                                                */
 /* ---------------------------------------------------------- */
 function HowItWorks() {
@@ -1015,8 +1323,8 @@ function SupportedNetworks() {
         "Amazon Associates", "Impact Radius", "ShareASale", "CJ Affiliate",
         "Rakuten Advertising", "Awin", "Skimlinks", "ClickBank",
         "AvantLink", "PartnerStack", "Refersion", "TradeDoubler",
-        "Webgains", "HasOffers / Tune", "VigLink / Sovrn", "MagicLinx",
-        "Post Affiliate Pro", "Tapfiliate",
+        "Webgains", "HasOffers / Tune", "VigLink / Sovrn",
+        "Post Affiliate Pro", "Tapfiliate", "Adobe Affiliate", "ClickFunnels",
       ],
     },
     {
@@ -1026,7 +1334,19 @@ function SupportedNetworks() {
       items: [
         "eBay Partner Network", "Walmart Affiliate", "Etsy Affiliate",
         "AliExpress Affiliate", "Target Partners", "Booking.com Affiliate",
-        "ShopStyle", "RewardStyle / LTK",
+        "ShopStyle", "RewardStyle / LTK", "Best Buy Affiliate",
+      ],
+    },
+    {
+      label: "SaaS & Hosting Programs",
+      icon: Zap,
+      color: "text-amber-500",
+      items: [
+        "Shopify Affiliate", "WP Engine Affiliate", "Kinsta Affiliate",
+        "Bluehost Affiliate", "SiteGround Affiliate", "Liquid Web Affiliate",
+        "HostGator Affiliate", "ConvertKit Affiliate", "Namecheap Affiliate",
+        "Coursera Affiliate", "Udemy Affiliate", "Skillshare Affiliate",
+        "Teachable Affiliate", "Thinkific Affiliate", "Patreon Affiliate",
       ],
     },
     {
@@ -1037,6 +1357,7 @@ function SupportedNetworks() {
         "Google AdSense", "Media.net", "AdThrive", "Mediavine",
         "Taboola", "Outbrain", "Ezoic", "Carbon Ads",
         "BuySellAds", "Infolinks", "Raptive", "Amazon Associates (Display)",
+        "Adsterra", "PropellerAds",
       ],
     },
   ]
@@ -1054,14 +1375,14 @@ function SupportedNetworks() {
             <Star className="w-3 h-3 text-primary" /> Coverage
           </Badge>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
-            <span className="text-gradient">45+</span> supported networks
+            <span className="text-gradient">60+</span> supported networks
           </h2>
           <p className="text-muted-foreground text-base sm:text-lg">
-            We&apos;re constantly expanding detection. Don&apos;t see a network? Open an issue on GitHub.
+            We add new networks all the time. If you spot one we missed, let me know and I will add it.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 max-w-5xl mx-auto">
           {groups.map((g, gi) => (
             <motion.div
               key={g.label}
@@ -1127,12 +1448,8 @@ function CTASection() {
                   </a>
                 </Button>
                 <Button asChild size="lg" variant="outline" className="h-12 px-7 font-semibold gap-2 bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
-                  <a
-                    href="https://github.com/mathaisolver/affiliate-link-checker-"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Github className="w-4 h-4" /> View source on GitHub
+                  <a href="#guide">
+                    <BookOpen className="w-4 h-4" /> Read the guide
                   </a>
                 </Button>
               </div>
@@ -1158,25 +1475,18 @@ function Footer() {
             </div>
             <div className="text-sm">
               <span className="font-semibold">Affiliate Link Checker</span>
-              <span className="text-muted-foreground ml-2">· Free, open-source, no signup</span>
+              <span className="text-muted-foreground ml-2">· Free, no sign up, no ads</span>
             </div>
           </div>
           <div className="flex items-center gap-5 text-xs text-muted-foreground">
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
             <a href="#how-it-works" className="hover:text-foreground transition-colors">How it works</a>
             <a href="#networks" className="hover:text-foreground transition-colors">Networks</a>
-            <a
-              href="https://github.com/mathaisolver/affiliate-link-checker-"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-foreground transition-colors flex items-center gap-1"
-            >
-              <Github className="w-3.5 h-3.5" /> GitHub
-            </a>
+            <a href="#guide" className="hover:text-foreground transition-colors">Guide</a>
           </div>
         </div>
         <div className="mt-6 pt-6 border-t border-border/40 text-center text-xs text-muted-foreground">
-          Built with Next.js 16 · Tailwind CSS 4 · shadcn/ui · Framer Motion. Detection engine uses 30+ affiliate signatures and 15+ ad network detectors. Always verify results against the live page.
+          Free affiliate link checker. Check Amazon, ShareASale, CJ Affiliate, Awin, and 30+ affiliate networks. No sign up, no fee, no ads. Built for bloggers, affiliate marketers, and SEO pros who need to keep their links fresh and FTC compliant.
         </div>
       </div>
     </footer>
