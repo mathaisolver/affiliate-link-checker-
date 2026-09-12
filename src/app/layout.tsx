@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -12,6 +13,11 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+// === Google Analytics ===
+// Tag ID provided by site owner. Used for traffic tracking and
+// Google Search Console verification (via GA property linkage).
+const GA_MEASUREMENT_ID = "G-HJZ13T8NCE";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://affiliate-link-checker.vercel.app"),
@@ -130,6 +136,24 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
+        {/* === Google Analytics (gtag.js) === */}
+        {/* Loads the GA library asynchronously to avoid blocking page render. */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}', {
+              page_title: document.title,
+              page_location: window.location.href,
+            });
+          `}
+        </Script>
+
         {children}
         <Toaster />
       </body>
