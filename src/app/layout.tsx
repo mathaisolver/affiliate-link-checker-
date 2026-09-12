@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://affiliate-link-checker.vercel.app"),
-  title: "Affiliate Link Checker — Check Amazon & Affiliate Links Free",
+  title: "Affiliate Link Checker: Check Amazon & Affiliate Links Free",
   description:
     "Free affiliate link checker. Paste any URL to check affiliate links, find broken Amazon links, detect affiliate tags, see the final URL, and audit outbound links. No sign up.",
   keywords: [
@@ -78,7 +78,7 @@ export const metadata: Metadata = {
   },
   manifest: undefined,
   openGraph: {
-    title: "Affiliate Link Checker — Check Amazon & Affiliate Links Free",
+    title: "Affiliate Link Checker: Check Amazon & Affiliate Links Free",
     description:
       "Free tool to check affiliate links on any page. Find broken Amazon links, detect affiliate tags, audit outbound links, and view the final URL of each link.",
     url: "https://affiliate-link-checker.vercel.app",
@@ -95,7 +95,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "Affiliate Link Checker — Check Amazon & Affiliate Links Free",
+    title: "Affiliate Link Checker: Check Amazon & Affiliate Links Free",
     description:
       "Free tool to check affiliate links on any page. Find broken Amazon links, detect affiliate tags, audit outbound links.",
   },

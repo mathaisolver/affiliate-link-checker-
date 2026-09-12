@@ -901,7 +901,7 @@ export async function POST(req: NextRequest) {
       let matchedNetwork: string | null = null
       let reason = ''
 
-      // 1) rel="sponsored" or rel="affiliated" — strong signal
+      // 1) rel="sponsored" or rel="affiliated" = strong signal
       if (link.rel && (link.rel.includes('sponsored') || link.rel.includes('affiliated'))) {
         matchedNetwork = 'Rel=Sponsored Link'
         reason = 'Link marked with rel="sponsored" (Google affiliate signal)'
@@ -981,7 +981,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 7) rel="nofollow" + external + ad-like link — last resort check
+      // 7) rel="nofollow" + external + ad-like link = last resort check
       if (!matchedNetwork && link.rel && link.rel.includes('nofollow') && urlObj) {
         // Only mark if external + has some tracking hint
         const hasTrackingHint =

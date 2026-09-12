@@ -627,7 +627,7 @@ function VerdictCard({ result, verdict }: { result: CheckResult; verdict: "error
       color: "text-emerald-500",
       bg: "from-emerald-500/10 to-emerald-500/5",
       ring: "ring-emerald-500/30",
-      title: "Yes — affiliate activity detected",
+      title: "Yes, affiliate activity detected",
       desc: `Found ${result.affiliateNetworks.length} affiliate network${result.affiliateNetworks.length === 1 ? "" : "s"} and ${result.affiliateLinks.length} affiliate link${result.affiliateLinks.length === 1 ? "" : "s"}.`,
     },
     "no-affiliate": {
@@ -899,7 +899,7 @@ function Features() {
             Everything you need to <span className="text-gradient">audit a page</span>
           </h2>
           <p className="text-muted-foreground text-base sm:text-lg">
-            A complete affiliate intelligence toolkit — for marketers, affiliates, compliance teams, and curious readers.
+            A complete affiliate intelligence toolkit for marketers, affiliates, compliance teams, and curious readers.
           </p>
         </motion.div>
 
@@ -1002,13 +1002,15 @@ function SeoGuide() {
                 When a link breaks, you lose clicks. Lost clicks mean lost affiliate income. I have
                 seen this on my own site. One dead Amazon link can cost you a lot over a year. Broken
                 affiliate links also hurt your SEO. Google looks at outbound links as a vote. If too
-                many go to dead pages, your rank may drop.
+                many go to dead pages, your rank may drop. That is why you need to check for broken
+                links on a set plan, not just when you think of it.
               </p>
               <p>
                 With this tool, you can check a page in just a few secs. You see the final URL, the
                 HTTP status, and the affiliate id if one is used. You can fix bad links fast before
                 they hurt your affiliate revenue. A broken link checker is a must for any blog that
-                earns from links.
+                earns from links. If you find broken links, you can swap them out for new ones in
+                just a few clicks.
               </p>
             </div>
           </div>
@@ -1029,10 +1031,11 @@ function SeoGuide() {
               </p>
               <p>
                 If you are part of Amazon Associates, you know that links can break in many ways.
-                Our amazon affiliate link checker looks at each Amazon URL on your page. It shows
-                the ASIN, the tag, and the destination URL. If the link is dead, you can fix it or
-                remove it. The tool also finds broken amazon links that point to sold out or moved
-                items.
+                Amazon affiliate links can break when an item is sold out, moved, or no longer
+                listed. Our amazon affiliate link checker looks at each Amazon URL on your page. It
+                shows the ASIN, the tag, and the destination URL. If the link is dead, you can fix
+                it or remove it. The tool also finds broken amazon links that point to sold out or
+                moved items.
               </p>
               <p>
                 The tool also finds broken affiliate links from other top networks like{" "}
@@ -1242,7 +1245,7 @@ function HowItWorks() {
     {
       icon: MousePointerClick,
       title: "Paste a URL",
-      desc: "Drop in any webpage — homepage, blog post, product review, or landing page.",
+      desc: "Drop in any webpage: homepage, blog post, product review, or landing page.",
     },
     {
       icon: ScanLine,
