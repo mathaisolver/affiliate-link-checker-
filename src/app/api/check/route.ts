@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin, getUserFromRequest, hashIp } from '@/lib/supabase-server'
+import { TIERS, LIMITS, type Tier } from '@/lib/tiers'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -952,6 +954,69 @@ function isAffiliateSubdomain(href: string, sourceHost: string): boolean {
 
 // ----- Main POST handler -----
 export async function POST(req: NextRequest) {
+  // === RATE LIMIT CHECK ===
+  // 1) Identify user (logged in via Supabase JWT, or anonymous via hashed IP)
+  const userId = await getUserFromRequest(req)
+  const rawIp =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown'
+  const ipHash = await hashIp(rawIp)
+
+  // 2) Determine tier
+  let tier: Tier = TIERS.ANON
+  if (userId) {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('tier')
+      .eq('id', userId)
+      .maybeSingle()
+    if (profile?.tier === 'pro') tier = TIERS.PRO
+    else if (profile?.tier === 'free') tier = TIERS.FREE
+    else tier = TIERS.FREE  // default for any logged-in user
+  }
+
+  // 3) Count today's usage
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  let usedToday = 0
+  if (userId) {
+    const { count } = await supabaseAdmin
+      .from('usage_tracking')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', todayStart.toISOString())
+    usedToday = count ?? 0
+  } else {
+    const { count } = await supabaseAdmin
+      .from('usage_tracking')
+      .select('*', { count: 'exact', head: true })
+      .eq('ip_hash', ipHash)
+      .gte('created_at', todayStart.toISOString())
+    usedToday = count ?? 0
+  }
+
+  // 4) Enforce limit (Pro = unlimited)
+  const limit = LIMITS[tier]
+  if (tier !== TIERS.PRO && usedToday >= limit) {
+    return NextResponse.json(
+      {
+        rateLimited: true,
+        tier,
+        usedToday,
+        limit,
+        remaining: 0,
+        upgradeUrl: process.env.NEXT_PUBLIC_SITE_URL + '/#upgrade',
+        message:
+          tier === TIERS.ANON
+            ? `You've used your 1 free check today. Sign up to get 3 free checks per day, or go Pro for unlimited.`
+            : `You've used all ${limit} free checks today. Go Pro for $9 lifetime to keep checking.`,
+      },
+      { status: 429 }
+    )
+  }
+
+  // 5) Parse request body and run the check
   const body = await req.json().catch(() => ({}))
   const rawUrl: string = (body?.url || '').toString()
   const normalized = normalizeUrl(rawUrl)
@@ -1254,7 +1319,38 @@ export async function POST(req: NextRequest) {
       sponsoredLinksCount > 0
     result.fetchMs = Date.now() - startedAt
 
-    return NextResponse.json(result)
+    // === RECORD USAGE ===
+    // Insert the usage record. We await this so the insert finishes before
+    // the route returns (otherwise the lambda might be torn down first).
+    try {
+      const insertRes = await supabaseAdmin
+        .from('usage_tracking')
+        .insert({
+          user_id: userId,
+          ip_hash: userId ? null : ipHash,
+          url_checked: rawUrl.trim(),
+        })
+      if (insertRes.error) {
+        console.error('[usage_tracking] insert failed:', insertRes.error.message)
+      }
+    } catch {
+      // silent fail — we don't want to break the user's check over a usage row
+    }
+
+    // Compute new usage state for the client to display
+    const newUsedToday = usedToday + 1
+    const remaining = tier === TIERS.PRO ? Infinity : Math.max(0, limit - newUsedToday)
+    const usageState = {
+      tier,
+      usedToday: newUsedToday,
+      limit,
+      remaining: tier === TIERS.PRO ? Infinity : remaining,
+      bulkLimit: tier === TIERS.PRO ? 50 : 0,
+      canCheck: tier === TIERS.PRO || remaining > 0,
+      canUseBulk: tier === TIERS.PRO,
+    }
+
+    return NextResponse.json({ ...result, usage: usageState })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown fetch error'
     result.error = message.includes('aborted')

@@ -9,7 +9,7 @@ import {
   TrendingUp, Eye, ScanLine, Loader2, ChevronDown, ArrowUpRight,
   BadgeCheck, Network, Fingerprint, Building2, Star, Rocket,
   BookOpen, PenLine, AlertCircle, LinkIcon, Target,
-  Wrench, Lightbulb, Users,
+  Wrench, Lightbulb, Users, Crown, LogOut, User as UserIcon, Lock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,12 @@ import {
 } from "@/components/ui/tooltip"
 import { toast } from "sonner"
 import { Toaster as SonnerToaster } from "@/components/ui/sonner"
+import { AuthModal } from "@/components/auth-modal"
+import { UpgradeModal } from "@/components/upgrade-modal"
+import { BulkChecker } from "@/components/bulk-checker"
+import { useAuth } from "@/hooks/use-auth"
+import { TIERS } from "@/lib/tiers"
+import { supabase } from "@/lib/supabase-client"
 
 /* ---------------------------------------------------------- */
 /* Types                                                       */
@@ -71,6 +77,15 @@ interface CheckResult {
   }
   fetchMs: number
   error?: string
+  usage?: {
+    tier: string
+    usedToday: number
+    limit: number
+    remaining: number
+    bulkLimit: number
+    canCheck: boolean
+    canUseBulk: boolean
+  }
 }
 
 /* ---------------------------------------------------------- */
@@ -114,6 +129,13 @@ export default function Home() {
   const [scanStage, setScanStage] = useState<string>("")
   const resultRef = useRef<HTMLDivElement | null>(null)
 
+  // === AUTH + USAGE STATE ===
+  const { auth, usage, refreshUsage, signOut } = useAuth()
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authModalReason, setAuthModalReason] = useState<"signup" | "rate-limit" | "bulk">("signup")
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<"single" | "bulk">("single")
+
   const stages = [
     "Connecting to host…",
     "Fetching HTML…",
@@ -142,16 +164,41 @@ export default function Home() {
     }, 900)
 
     try {
+      // Get the user's auth token (if logged in) and pass it along
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch("/api/check", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({ url: u }),
       })
+
+      // === HANDLE RATE LIMIT (429) ===
+      if (res.status === 429) {
+        const data = await res.json()
+        setLoading(false)
+        clearInterval(stageTimer)
+        setScanStage("")
+        toast.error(data.message || "Daily limit reached")
+        // Show auth modal for anon users, upgrade modal for signed-up users
+        if (data.tier === "anon") {
+          setAuthModalReason("rate-limit")
+          setAuthModalOpen(true)
+        } else {
+          setUpgradeModalOpen(true)
+        }
+        return
+      }
+
       const data: CheckResult = await res.json()
       if ((data as { error?: string }).error && !data.statusCode) {
         toast.error((data as { error?: string }).error || "Failed to check URL")
       }
       setResult(data)
+      // Refresh usage state after a successful check
+      refreshUsage()
       setTimeout(() => {
         resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
       }, 100)
@@ -162,11 +209,26 @@ export default function Home() {
       setScanStage("")
       setLoading(false)
     }
-  }, [url])
+  }, [url, refreshUsage])
 
   const handleSample = (sample: string) => {
     setUrl(sample)
     runCheck(sample)
+  }
+
+  const openAuthModal = (reason: "signup" | "rate-limit" | "bulk" = "signup") => {
+    setAuthModalReason(reason)
+    setAuthModalOpen(true)
+  }
+
+  const openUpgradeModal = () => {
+    // If user isn't logged in, ask them to sign up first
+    if (!auth.isAuthenticated) {
+      openAuthModal("signup")
+      toast.info("Sign up first, then upgrade to Pro.")
+      return
+    }
+    setUpgradeModalOpen(true)
   }
 
   return (
@@ -174,21 +236,57 @@ export default function Home() {
       <SonnerToaster richColors position="top-right" />
 
       {/* ===== Top Navigation ===== */}
-      <TopNav />
+      <TopNav
+        auth={auth}
+        usage={usage}
+        onSignIn={() => openAuthModal("signup")}
+        onSignOut={signOut}
+        onUpgrade={() => openUpgradeModal()}
+      />
 
-      {/* ===== Hero + Input ===== */}
-      <Hero url={url} setUrl={setUrl} loading={loading} runCheck={runCheck} handleSample={handleSample} scanStage={scanStage} />
+      {/* ===== Mode Tabs (Single / Bulk) ===== */}
+      <ModeTabs activeTab={activeTab} setActiveTab={setActiveTab} isPro={auth.isPro} onLockedClick={() => openUpgradeModal()} />
 
-      {/* ===== Results ===== */}
-      <section ref={resultRef} className="container mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <AnimatePresence mode="wait">
-          {loading && <LoadingResult scanStage={scanStage} />}
-          {!loading && result && <ResultView result={result} />}
-        </AnimatePresence>
-      </section>
+      {/* ===== Bulk checker view ===== */}
+      {activeTab === "bulk" && (
+        <section className="container mx-auto px-4 sm:px-6 lg:px-8 pb-16 pt-6">
+          <BulkChecker
+            isPro={auth.isPro}
+            onUpgradeClick={() => openUpgradeModal()}
+            onSignupClick={() => openAuthModal("bulk")}
+          />
+        </section>
+      )}
+
+      {/* ===== Hero + Input (single mode only) ===== */}
+      {activeTab === "single" && (
+        <Hero
+          url={url}
+          setUrl={setUrl}
+          loading={loading}
+          runCheck={runCheck}
+          handleSample={handleSample}
+          scanStage={scanStage}
+          usage={usage}
+          isPro={auth.isPro}
+          isAuthenticated={auth.isAuthenticated}
+          onSignUpClick={() => openAuthModal("rate-limit")}
+          onUpgradeClick={() => openUpgradeModal()}
+        />
+      )}
+
+      {/* ===== Results (single mode only) ===== */}
+      {activeTab === "single" && (
+        <section ref={resultRef} className="container mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+          <AnimatePresence mode="wait">
+            {loading && <LoadingResult scanStage={scanStage} />}
+            {!loading && result && <ResultView result={result} />}
+          </AnimatePresence>
+        </section>
+      )}
 
       {/* ===== Features ===== */}
-      {!loading && !result && <Features />}
+      {!loading && !result && activeTab === "single" && <Features />}
 
       {/* ===== SEO Guide & Content ===== */}
       {!loading && !result && <SeoGuide />}
@@ -204,6 +302,20 @@ export default function Home() {
 
       {/* ===== Footer ===== */}
       <Footer />
+
+      {/* ===== Modals ===== */}
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        reason={authModalReason}
+        onSuccess={() => refreshUsage()}
+      />
+      <UpgradeModal
+        open={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        currentUserEmail={auth.email}
+        onUpgraded={() => refreshUsage()}
+      />
     </div>
   )
 }
@@ -211,7 +323,17 @@ export default function Home() {
 /* ---------------------------------------------------------- */
 /* Top Nav                                                     */
 /* ---------------------------------------------------------- */
-function TopNav() {
+function TopNav({
+  auth, usage, onSignIn, onSignOut, onUpgrade,
+}: {
+  auth: { isAuthenticated: boolean; isPro: boolean; email: string | null; tier: string }
+  usage: { usedToday: number; limit: number; remaining: number; tier: string }
+  onSignIn: () => void
+  onSignOut: () => void
+  onUpgrade: () => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/70 backdrop-blur-xl">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -232,11 +354,93 @@ function TopNav() {
           <a href="#guide" className="hover:text-foreground transition-colors">Guide</a>
         </nav>
         <div className="flex items-center gap-2">
-          <Button asChild size="sm" className="gap-1.5">
-            <a href="#checker">
-              Try it <ArrowRight className="w-3.5 h-3.5" />
-            </a>
-          </Button>
+          {/* Pro badge for pro users */}
+          {auth.isPro && (
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold bg-amber-500/15 text-amber-600 border border-amber-500/30">
+              <Crown className="w-3 h-3" /> Pro
+            </span>
+          )}
+
+          {/* Usage badge for signed-up users */}
+          {auth.isAuthenticated && !auth.isPro && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-secondary border border-border/60">
+              <Zap className="w-3 h-3 text-amber-500" />
+              {usage.remaining === Infinity ? "∞" : usage.remaining} left today
+            </span>
+          )}
+
+          {/* User menu OR Sign in button */}
+          {auth.isAuthenticated ? (
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/60 hover:border-foreground/30 hover:bg-secondary/40 transition-all text-sm font-medium"
+              >
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-chart-2 flex items-center justify-center text-primary-foreground text-xs font-bold">
+                  {(auth.email || "?")[0].toUpperCase()}
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+              <AnimatePresence>
+                {menuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setMenuOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                      className="absolute right-0 top-full mt-2 w-60 bg-card border border-border rounded-xl shadow-xl z-20 overflow-hidden"
+                    >
+                      <div className="px-4 py-3 border-b border-border/40">
+                        <div className="text-xs text-muted-foreground">Signed in as</div>
+                        <div className="text-sm font-medium truncate">{auth.email}</div>
+                        {auth.isPro && (
+                          <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-600 border border-amber-500/30">
+                            <Crown className="w-2.5 h-2.5" /> Lifetime Pro
+                          </div>
+                        )}
+                      </div>
+                      {!auth.isPro && (
+                        <button
+                          onClick={() => { onUpgrade(); setMenuOpen(false) }}
+                          className="w-full px-4 py-2.5 text-sm text-left hover:bg-muted/40 flex items-center gap-2 transition-colors border-b border-border/40"
+                        >
+                          <Crown className="w-3.5 h-3.5 text-amber-500" />
+                          Go Pro for $9
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { onSignOut(); setMenuOpen(false) }}
+                        className="w-full px-4 py-2.5 text-sm text-left hover:bg-muted/40 flex items-center gap-2 transition-colors text-muted-foreground hover:text-foreground"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        Sign out
+                      </button>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <>
+              <Button
+                onClick={onSignIn}
+                variant="ghost"
+                size="sm"
+                className="hidden sm:flex"
+              >
+                Sign in
+              </Button>
+              <Button asChild size="sm" className="gap-1.5">
+                <a href="#checker">
+                  Try it <ArrowRight className="w-3.5 h-3.5" />
+                </a>
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </header>
@@ -244,10 +448,58 @@ function TopNav() {
 }
 
 /* ---------------------------------------------------------- */
+/* Mode Tabs (Single / Bulk)                                   */
+/* ---------------------------------------------------------- */
+function ModeTabs({
+  activeTab, setActiveTab, isPro, onLockedClick,
+}: {
+  activeTab: "single" | "bulk"
+  setActiveTab: (t: "single" | "bulk") => void
+  isPro: boolean
+  onLockedClick: () => void
+}) {
+  return (
+    <div className="sticky top-16 z-40 w-full border-b border-border/40 bg-background/60 backdrop-blur-xl">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-center gap-2">
+        <button
+          onClick={() => setActiveTab("single")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+            activeTab === "single"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+          }`}
+        >
+          <Search className="w-3.5 h-3.5" />
+          Single URL
+        </button>
+        <button
+          onClick={() => (isPro ? setActiveTab("bulk") : onLockedClick())}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+            activeTab === "bulk"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : isPro
+              ? "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+          }`}
+        >
+          {isPro ? <Layers className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+          Bulk Checker
+          {!isPro && (
+            <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-500/15 text-amber-600 border border-amber-500/30">
+              <Crown className="w-2.5 h-2.5" /> PRO
+            </span>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ---------------------------------------------------------- */
 /* Hero                                                        */
 /* ---------------------------------------------------------- */
 function Hero({
-  url, setUrl, loading, runCheck, handleSample, scanStage,
+  url, setUrl, loading, runCheck, handleSample, scanStage, usage, isPro, isAuthenticated, onSignUpClick, onUpgradeClick,
 }: {
   url: string
   setUrl: (v: string) => void
@@ -255,6 +507,11 @@ function Hero({
   runCheck: () => void
   handleSample: (s: string) => void
   scanStage: string
+  usage: { usedToday: number; limit: number; remaining: number; tier: string }
+  isPro: boolean
+  isAuthenticated: boolean
+  onSignUpClick: () => void
+  onUpgradeClick: () => void
 }) {
   return (
     <section id="checker" className="relative overflow-hidden pt-16 sm:pt-20 lg:pt-28 pb-12">
@@ -369,6 +626,51 @@ function Hero({
                 </button>
               ))}
             </div>
+
+            {/* Usage badge */}
+            {!loading && (
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
+                {isPro ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 text-amber-600 border border-amber-500/30 font-semibold">
+                    <Crown className="w-3.5 h-3.5" />
+                    Pro · Unlimited checks
+                  </span>
+                ) : isAuthenticated ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/60 border border-border/60">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="font-medium">
+                      {usage.remaining === Infinity
+                        ? "Unlimited"
+                        : usage.remaining === 0
+                        ? "0 left"
+                        : `${usage.remaining} of ${usage.limit} free checks left today`}
+                    </span>
+                    {usage.remaining <= 1 && (
+                      <button
+                        onClick={onUpgradeClick}
+                        className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 hover:bg-amber-500/30 transition-colors font-semibold"
+                      >
+                        <Crown className="w-3 h-3" /> Go Pro $9
+                      </button>
+                    )}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/60 border border-border/60">
+                    <span className="font-medium">
+                      {usage.remaining === 0
+                        ? "Daily free check used"
+                        : `${usage.remaining} free check today`}
+                    </span>
+                    <button
+                      onClick={onSignUpClick}
+                      className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary hover:bg-primary/25 transition-colors font-semibold"
+                    >
+                      Sign up for 3 →
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Animated scan stage banner */}
             <AnimatePresence>
